@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-const { describe, it } = require("node:test");
-const assert = require("node:assert/strict");
 const path = require("node:path");
 const childProcess = require("node:child_process");
 const { spawnSync } = childProcess;
@@ -26,8 +24,8 @@ describe("runner helpers", () => {
       input: "preserved-answer\n",
     });
 
-    assert.equal(result.status, 0);
-    assert.equal(result.stdout, "preserved-answer\n");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("preserved-answer\n");
   });
 
   it("uses inherited stdio for interactive commands only", () => {
@@ -48,9 +46,9 @@ describe("runner helpers", () => {
       delete require.cache[require.resolve(runnerPath)];
     }
 
-    assert.equal(calls.length, 2);
-    assert.deepEqual(calls[0][2].stdio, ["ignore", "inherit", "inherit"]);
-    assert.equal(calls[1][2].stdio, "inherit");
+    expect(calls.length).toBe(2);
+    expect(calls[0][2].stdio).toEqual(["ignore", "inherit", "inherit"]);
+    expect(calls[1][2].stdio).toBe("inherit");
   });
 
   it("preserves process env when opts.env is provided", () => {
@@ -77,29 +75,29 @@ describe("runner helpers", () => {
       delete require.cache[require.resolve(runnerPath)];
     }
 
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0][2].env.OPENSHELL_CLUSTER_IMAGE, "ghcr.io/nvidia/openshell/cluster:0.0.12");
-    assert.equal(calls[0][2].env.PATH, "/usr/local/bin:/usr/bin");
+    expect(calls.length).toBe(1);
+    expect(calls[0][2].env.OPENSHELL_CLUSTER_IMAGE).toBe("ghcr.io/nvidia/openshell/cluster:0.0.12");
+    expect(calls[0][2].env.PATH).toBe("/usr/local/bin:/usr/bin");
   });
 
   describe("shellQuote", () => {
     it("wraps in single quotes", () => {
       const { shellQuote } = require(runnerPath);
-      assert.equal(shellQuote("hello"), "'hello'");
+      expect(shellQuote("hello")).toBe("'hello'");
     });
 
     it("escapes embedded single quotes", () => {
       const { shellQuote } = require(runnerPath);
-      assert.equal(shellQuote("it's"), "'it'\\''s'");
+      expect(shellQuote("it's")).toBe("'it'\\''s'");
     });
 
     it("neutralizes shell metacharacters", () => {
       const { shellQuote } = require(runnerPath);
       const dangerous = "test; rm -rf /";
       const quoted = shellQuote(dangerous);
-      assert.equal(quoted, "'test; rm -rf /'");
+      expect(quoted).toBe("'test; rm -rf /'");
       const result = spawnSync("bash", ["-c", `echo ${quoted}`], { encoding: "utf-8" });
-      assert.equal(result.stdout.trim(), dangerous);
+      expect(result.stdout.trim()).toBe(dangerous);
     });
 
     it("handles backticks and dollar signs", () => {
@@ -107,39 +105,39 @@ describe("runner helpers", () => {
       const payload = "test`whoami`$HOME";
       const quoted = shellQuote(payload);
       const result = spawnSync("bash", ["-c", `echo ${quoted}`], { encoding: "utf-8" });
-      assert.equal(result.stdout.trim(), payload);
+      expect(result.stdout.trim()).toBe(payload);
     });
   });
 
   describe("validateName", () => {
     it("accepts valid RFC 1123 names", () => {
       const { validateName } = require(runnerPath);
-      assert.equal(validateName("my-sandbox"), "my-sandbox");
-      assert.equal(validateName("test123"), "test123");
-      assert.equal(validateName("a"), "a");
+      expect(validateName("my-sandbox")).toBe("my-sandbox");
+      expect(validateName("test123")).toBe("test123");
+      expect(validateName("a")).toBe("a");
     });
 
     it("rejects names with shell metacharacters", () => {
       const { validateName } = require(runnerPath);
-      assert.throws(() => validateName("test; whoami"), /Invalid/);
-      assert.throws(() => validateName("test`id`"), /Invalid/);
-      assert.throws(() => validateName("test$(cat /etc/passwd)"), /Invalid/);
-      assert.throws(() => validateName("../etc/passwd"), /Invalid/);
+      expect(() => validateName("test; whoami")).toThrow(/Invalid/);
+      expect(() => validateName("test`id`")).toThrow(/Invalid/);
+      expect(() => validateName("test$(cat /etc/passwd)")).toThrow(/Invalid/);
+      expect(() => validateName("../etc/passwd")).toThrow(/Invalid/);
     });
 
     it("rejects empty and overlength names", () => {
       const { validateName } = require(runnerPath);
-      assert.throws(() => validateName(""), /required/);
-      assert.throws(() => validateName(null), /required/);
-      assert.throws(() => validateName("a".repeat(64)), /too long/);
+      expect(() => validateName("")).toThrow(/required/);
+      expect(() => validateName(null)).toThrow(/required/);
+      expect(() => validateName("a".repeat(64))).toThrow(/too long/);
     });
 
     it("rejects uppercase and special characters", () => {
       const { validateName } = require(runnerPath);
-      assert.throws(() => validateName("MyBox"), /Invalid/);
-      assert.throws(() => validateName("my_box"), /Invalid/);
-      assert.throws(() => validateName("-leading"), /Invalid/);
-      assert.throws(() => validateName("trailing-"), /Invalid/);
+      expect(() => validateName("MyBox")).toThrow(/Invalid/);
+      expect(() => validateName("my_box")).toThrow(/Invalid/);
+      expect(() => validateName("-leading")).toThrow(/Invalid/);
+      expect(() => validateName("trailing-")).toThrow(/Invalid/);
     });
   });
 
@@ -150,7 +148,7 @@ describe("runner helpers", () => {
       const lines = src.split("\n");
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].includes("execSync") && !lines[i].includes("execFileSync")) {
-          assert.fail(`bin/nemoclaw.js:${i + 1} uses execSync — use execFileSync instead`);
+          expect.unreachable(`bin/nemoclaw.js:${i + 1} uses execSync — use execFileSync instead`);
         }
       }
     });
@@ -174,8 +172,8 @@ describe("runner helpers", () => {
           defs.push(file.replace(binDir, "bin"));
         }
       }
-      assert.equal(defs.length, 1, `Expected 1 shellQuote definition, found ${defs.length}: ${defs.join(", ")}`);
-      assert.ok(defs[0].includes("runner"), `shellQuote should be in runner.js, found in ${defs[0]}`);
+      expect(defs.length).toBe(1);
+      expect(defs[0].includes("runner")).toBeTruthy();
     });
 
     it("CLI rejects malicious sandbox names before shell commands (e2e)", () => {
@@ -193,8 +191,8 @@ describe("runner helpers", () => {
           timeout: 10000,
           cwd: path.join(__dirname, ".."),
         });
-        assert.notEqual(result.status, 0, "CLI should reject malicious sandbox name");
-        assert.equal(fs.existsSync(canary), false, "shell payload must never execute");
+        expect(result.status).not.toBe(0);
+        expect(fs.existsSync(canary)).toBe(false);
       } finally {
         fs.rmSync(canaryDir, { recursive: true, force: true });
       }
@@ -203,15 +201,15 @@ describe("runner helpers", () => {
     it("bridge-core validates SANDBOX_NAME on startup", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "bridge-core.js"), "utf-8");
-      assert.ok(src.includes("validateName(SANDBOX"), "bridge-core.js must validate SANDBOX_NAME");
-      assert.ok(!src.includes("execSync"), "bridge-core.js should not use execSync");
+      expect(src.includes("validateName(SANDBOX")).toBeTruthy();
+      expect(src.includes("execSync")).toBe(false);
     });
 
     it("bridge runner uses bridge-core for sandbox relay", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "bridge.js"), "utf-8");
-      assert.ok(src.includes("require(\"./bridge-core\")"), "bridge.js must use bridge-core");
-      assert.ok(src.includes("runAgentInSandbox"), "bridge.js must use runAgentInSandbox");
+      expect(src.includes("require(\"./bridge-core\")")).toBeTruthy();
+      expect(src.includes("runAgentInSandbox")).toBeTruthy();
     });
 
     it("each messaging adapter exists and exports a function", () => {
@@ -219,9 +217,9 @@ describe("runner helpers", () => {
       const adaptersDir = path.join(__dirname, "..", "scripts", "adapters", "messaging");
       for (const name of ["telegram", "discord", "slack"]) {
         const adapterPath = path.join(adaptersDir, `${name}.js`);
-        assert.ok(fs.existsSync(adapterPath), `adapter ${name}.js must exist`);
+        expect(fs.existsSync(adapterPath)).toBeTruthy();
         const src = fs.readFileSync(adapterPath, "utf-8");
-        assert.ok(src.includes("module.exports"), `${name}.js must export a function`);
+        expect(src.includes("module.exports")).toBeTruthy();
       }
     });
 
@@ -231,10 +229,10 @@ describe("runner helpers", () => {
       const bp = yaml.load(fs.readFileSync(path.join(__dirname, "..", "nemoclaw-blueprint", "blueprint.yaml"), "utf-8"));
       const bridges = bp.components.bridges;
       for (const name of ["telegram", "discord", "slack"]) {
-        assert.ok(bridges[name], `blueprint must define ${name} bridge`);
-        assert.ok(bridges[name].credential_env, `${name} bridge must specify credential_env`);
-        assert.ok(bridges[name].session_prefix, `${name} bridge must specify session_prefix`);
-        assert.ok(bridges[name].adapter, `${name} bridge must specify adapter`);
+        expect(bridges[name]).toBeTruthy();
+        expect(bridges[name].credential_env).toBeTruthy();
+        expect(bridges[name].session_prefix).toBeTruthy();
+        expect(bridges[name].adapter).toBeTruthy();
       }
     });
 
@@ -243,10 +241,9 @@ describe("runner helpers", () => {
       const yaml = require("js-yaml");
       const bp = yaml.load(fs.readFileSync(path.join(__dirname, "..", "nemoclaw-blueprint", "blueprint.yaml"), "utf-8"));
       const bridges = bp.components.bridges;
-      // Verify field naming matches inference profile convention (credential_env, not token_env)
       for (const [name, config] of Object.entries(bridges)) {
-        assert.ok(!config.token_env, `${name} bridge should use credential_env, not token_env`);
-        assert.equal(typeof config.credential_env, "string", `${name} bridge credential_env must be a string`);
+        expect(config.token_env).toBeFalsy();
+        expect(typeof config.credential_env).toBe("string");
       }
     });
 
@@ -255,51 +252,51 @@ describe("runner helpers", () => {
       const yaml = require("js-yaml");
       const bp = yaml.load(fs.readFileSync(path.join(__dirname, "..", "nemoclaw-blueprint", "blueprint.yaml"), "utf-8"));
       const slack = bp.components.bridges.slack;
-      assert.ok(Array.isArray(slack.extra_credential_env), "slack must have extra_credential_env array");
-      assert.ok(slack.extra_credential_env.includes("SLACK_APP_TOKEN"), "slack must require SLACK_APP_TOKEN");
+      expect(Array.isArray(slack.extra_credential_env)).toBe(true);
+      expect(slack.extra_credential_env.includes("SLACK_APP_TOKEN")).toBe(true);
     });
 
     it("telegram-bridge.js backwards-compat wrapper delegates to bridge.js", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "telegram-bridge.js"), "utf-8");
-      assert.ok(src.includes("require(\"./bridge\")"), "telegram-bridge.js must delegate to bridge.js");
-      assert.ok(src.includes("telegram"), "telegram-bridge.js must inject 'telegram' arg");
+      expect(src.includes("require(\"./bridge\")")).toBeTruthy();
+      expect(src.includes("telegram")).toBeTruthy();
     });
 
     it("bridge.js loads configs from blueprint.yaml, not separate files", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "bridge.js"), "utf-8");
-      assert.ok(src.includes("blueprint.yaml"), "bridge.js must reference blueprint.yaml");
-      assert.ok(!src.includes("bridges/messaging"), "bridge.js must not reference separate bridge files");
+      expect(src.includes("blueprint.yaml")).toBeTruthy();
+      expect(src.includes("bridges/messaging")).toBe(false);
     });
 
     it("bridge.js logs metadata only, never raw message content", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "scripts", "bridge.js"), "utf-8");
       // Ensure log lines use length, not content
-      assert.ok(src.includes("inbound (len="), "bridge.js must log message length, not content");
-      assert.ok(src.includes("response (len="), "bridge.js must log response length, not content");
+      expect(src.includes("inbound (len=")).toBeTruthy();
+      expect(src.includes("response (len=")).toBeTruthy();
       // Ensure console.log calls never interpolate raw msg.text (length is ok)
       const logLines = src.split("\n").filter((l) => l.includes("console.log"));
       for (const line of logLines) {
         const hasRawText = line.includes("msg.text}") || line.includes("msg.text,") || line.includes("msg.text)");
-        assert.ok(!hasRawText, `log line must not include raw text: ${line.trim()}`);
+        expect(hasRawText).toBe(false);
       }
     });
 
     it("onboard auto-starts bridges when messaging tokens detected", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "bin", "lib", "onboard.js"), "utf-8");
-      assert.ok(src.includes("startMessagingBridges"), "onboard must call startMessagingBridges");
-      assert.ok(src.includes("start-services.sh"), "startMessagingBridges must delegate to start-services.sh");
-      assert.ok(src.includes("RISKY CHANGE"), "auto-start must be annotated as risky migration");
+      expect(src.includes("startMessagingBridges")).toBeTruthy();
+      expect(src.includes("start-services.sh")).toBeTruthy();
+      expect(src.includes("RISKY CHANGE")).toBeTruthy();
     });
 
     it("onboard passes all four credential types via getCredential pattern", () => {
       const fs = require("fs");
       const src = fs.readFileSync(path.join(__dirname, "..", "bin", "lib", "onboard.js"), "utf-8");
       for (const token of ["NVIDIA_API_KEY", "DISCORD_BOT_TOKEN", "SLACK_BOT_TOKEN", "TELEGRAM_BOT_TOKEN"]) {
-        assert.ok(src.includes(`getCredential("${token}")`), `onboard must use getCredential for ${token}`);
+        expect(src.includes(`getCredential("${token}")`)).toBeTruthy();
       }
     });
   });

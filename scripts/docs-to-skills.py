@@ -1091,13 +1091,17 @@ def generate_skill(
     for output_dir in output_dirs:
         skill_dir = output_dir / name
         skill_dir.mkdir(parents=True, exist_ok=True)
-        (skill_dir / "SKILL.md").write_text(skill_md.rstrip("\n") + "\n", encoding="utf-8")
+        (skill_dir / "SKILL.md").write_text(
+            skill_md.rstrip("\n") + "\n", encoding="utf-8"
+        )
 
         if ref_files:
             refs_dir = skill_dir / "references"
             refs_dir.mkdir(exist_ok=True)
             for fname, content in ref_files.items():
-                (refs_dir / fname).write_text(content.rstrip("\n") + "\n", encoding="utf-8")
+                (refs_dir / fname).write_text(
+                    content.rstrip("\n") + "\n", encoding="utf-8"
+                )
 
     return summary
 
@@ -1214,7 +1218,9 @@ def main():
         "docs_dir", type=Path, help="Path to the documentation directory"
     )
     parser.add_argument(
-        "output_dirs", type=Path, nargs="+",
+        "output_dirs",
+        type=Path,
+        nargs="+",
         help="Output directories for generated skills (e.g. .agents/skills/ .claude/skills/)",
     )
     parser.add_argument(
@@ -1355,7 +1361,9 @@ def main():
                         claude_skills.unlink()
                 elif claude_skills.is_dir():
                     print(f"\n⚠ {claude_skills} is a real directory, not a symlink.")
-                    print(f"  Remove it and re-run, or manually symlink to {agents_skills}")
+                    print(
+                        f"  Remove it and re-run, or manually symlink to {agents_skills}"
+                    )
                     break
                 # Create parent and symlink
                 claude_skills.parent.mkdir(parents=True, exist_ok=True)

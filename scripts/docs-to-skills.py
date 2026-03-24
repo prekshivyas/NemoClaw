@@ -11,7 +11,7 @@ Usage:
 Make sure to run this script using the following command to generate the skills and keep the locations and names consistent.
 
 ```bash
-python scripts/docs-to-skills.py docs/ .agents/skills/docs/ --prefix nemoclaw
+python3 scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw
 ```
 
 What it does:
@@ -40,16 +40,17 @@ Naming:
   override specific names when the heuristic doesn't produce the right result.
 
 Usage:
-    python scripts/docs-to-skills.py docs/ .agents/skills/ .claude/skills/ --prefix nemoclaw
-    python scripts/docs-to-skills.py docs/ .claude/skills/ --prefix nemoclaw --dry-run
-    python scripts/docs-to-skills.py docs/ .agents/skills/ --strategy individual --prefix nemoclaw
-    python scripts/docs-to-skills.py docs/ .claude/skills/ --prefix nemoclaw --name-map about=overview
-    python scripts/docs-to-skills.py docs/ .claude/skills/ --exclude "release-notes.md"
+    python3 scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw
+    python3 scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw --dry-run
+    python3 scripts/docs-to-skills.py docs/ .agents/skills/ --strategy individual --prefix nemoclaw
+    python3 scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw --name-map about=overview
+    python3 scripts/docs-to-skills.py docs/ .agents/skills/ --prefix nemoclaw --exclude "release-notes.md"
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import textwrap
@@ -1203,10 +1204,10 @@ def main():
               smart       Group by directory, merge concept pages as context
 
             Examples:
-              %(prog)s docs/ .agents/skills/ .claude/skills/ --prefix nemoclaw
-              %(prog)s docs/ .claude/skills/ --strategy individual --prefix nemoclaw
-              %(prog)s docs/ .claude/skills/ --prefix nemoclaw --name-map about=overview
-              %(prog)s docs/ .agents/skills/ --strategy smart --dry-run
+              %(prog)s docs/ .agents/skills/ --prefix nemoclaw
+              %(prog)s docs/ .agents/skills/ --strategy individual --prefix nemoclaw
+              %(prog)s docs/ .agents/skills/ --prefix nemoclaw --name-map about=overview
+              %(prog)s docs/ .agents/skills/ --prefix nemoclaw --dry-run
         """),
     )
     parser.add_argument(
@@ -1339,6 +1340,29 @@ def main():
             dry_run=args.dry_run,
         )
         summaries.append(summary)
+
+    # Ensure .claude/skills symlink exists
+    if not args.dry_run:
+        claude_skills = Path(".claude/skills")
+        for out_dir in args.output_dirs:
+            # Only create symlink if output is under .agents/skills
+            if ".agents/skills" in str(out_dir):
+                agents_skills = Path(out_dir)
+                if claude_skills.is_symlink():
+                    if claude_skills.resolve() == agents_skills.resolve():
+                        break  # already correct
+                    else:
+                        claude_skills.unlink()
+                elif claude_skills.is_dir():
+                    print(f"\n⚠ {claude_skills} is a real directory, not a symlink.")
+                    print(f"  Remove it and re-run, or manually symlink to {agents_skills}")
+                    break
+                # Create parent and symlink
+                claude_skills.parent.mkdir(parents=True, exist_ok=True)
+                rel = os.path.relpath(agents_skills, claude_skills.parent)
+                claude_skills.symlink_to(rel)
+                print(f"\n✔ Created symlink: {claude_skills} → {rel}")
+                break
 
     # Report
     print("\n" + "=" * 60)

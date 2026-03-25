@@ -104,11 +104,11 @@ start_auto_pair() {
   # Run auto-pair as sandbox user (it talks to the gateway via CLI)
   # SECURITY: Pass resolved openclaw path to prevent PATH hijacking
   # When running as non-root, skip gosu (we're already the sandbox user)
-  local run_prefix=""
+  local run_prefix=()
   if [ "$(id -u)" -eq 0 ]; then
-    run_prefix="gosu sandbox"
+    run_prefix=(gosu sandbox)
   fi
-  OPENCLAW_BIN="$OPENCLAW" nohup $run_prefix python3 - <<'PYAUTOPAIR' >>/tmp/auto-pair.log 2>&1 &
+  OPENCLAW_BIN="$OPENCLAW" nohup "${run_prefix[@]}" python3 - <<'PYAUTOPAIR' >>/tmp/auto-pair.log 2>&1 &
 import json
 import os
 import subprocess

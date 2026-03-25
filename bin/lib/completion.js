@@ -172,8 +172,6 @@ function zsh() {
 }
 
 function fish() {
-  const debugFlags = DEBUG_FLAGS;
-
   return `# nemoclaw fish completion
 # Add to ~/.config/fish/completions/nemoclaw.fish
 # Or run:  nemoclaw completion fish | source

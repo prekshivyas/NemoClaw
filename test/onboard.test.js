@@ -24,6 +24,7 @@ import {
   getStableGatewayImageRef,
   isGatewayHealthy,
   patchStagedDockerfile,
+  printSandboxCreateRecoveryHints,
   shouldIncludeBuildContextPath,
   writeSandboxConfigSyncFile,
 } from "../bin/lib/onboard";
@@ -879,6 +880,54 @@ const { createSandbox } = require(${onboardPath});
     assert.equal(payload.unrefCalls, 1);
     assert.equal(payload.stdoutDestroyCalls, 1);
     assert.equal(payload.stderrDestroyCalls, 1);
+  });
+
+  it("prints resume guidance when sandbox image upload times out", () => {
+    const errors = [];
+    const originalError = console.error;
+    console.error = (...args) => errors.push(args.join(" "));
+    try {
+      printSandboxCreateRecoveryHints(
+        [
+          "  Pushing image openshell/sandbox-from:123 into gateway nemoclaw",
+          "  [progress] Uploaded to gateway",
+          "Error: failed to read image export stream",
+          "Timeout error",
+        ].join("\n")
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    const joined = errors.join("\n");
+    assert.match(joined, /Hint: image upload into the OpenShell gateway timed out\./);
+    assert.match(joined, /Recovery: nemoclaw onboard --resume/);
+    assert.match(
+      joined,
+      /Progress reached the gateway upload stage, so resume may be able to reuse existing gateway state\./
+    );
+  });
+
+  it("prints resume guidance when sandbox image upload resets after transfer progress", () => {
+    const errors = [];
+    const originalError = console.error;
+    console.error = (...args) => errors.push(args.join(" "));
+    try {
+      printSandboxCreateRecoveryHints(
+        [
+          "  Pushing image openshell/sandbox-from:123 into gateway nemoclaw",
+          "  [progress] Uploaded to gateway",
+          "Error: Connection reset by peer",
+        ].join("\n")
+      );
+    } finally {
+      console.error = originalError;
+    }
+
+    const joined = errors.join("\n");
+    assert.match(joined, /Hint: the image push\/import stream was interrupted\./);
+    assert.match(joined, /Recovery: nemoclaw onboard --resume/);
+    assert.match(joined, /The image appears to have reached the gateway before the stream failed\./);
   });
 
   it("accepts gateway inference when system inference is separately not configured", () => {

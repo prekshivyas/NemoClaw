@@ -2626,6 +2626,7 @@ module.exports = {
   isSandboxReady,
   onboard,
   onboardSession,
+  printSandboxCreateRecoveryHints,
   pruneStaleSandboxEntry,
   repairRecordedSandbox,
   recoverGatewayRuntime,

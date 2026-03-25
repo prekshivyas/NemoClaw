@@ -563,7 +563,7 @@ run_onboard() {
   fi
 }
 
-# 6. Post-install message
+# 6. Post-install message (printed last — after onboarding — so PATH hints stay visible)
 # ---------------------------------------------------------------------------
 post_install_message() {
   if [[ "$NEMOCLAW_READY_NOW" == true ]]; then
@@ -634,7 +634,6 @@ main() {
   # install_or_upgrade_ollama
   install_nemoclaw
   verify_nemoclaw
-  post_install_message
 
   step 3 "Onboarding"
   if command_exists nemoclaw; then
@@ -645,6 +644,7 @@ main() {
   fi
 
   print_done
+  post_install_message
 }
 
 main "$@"

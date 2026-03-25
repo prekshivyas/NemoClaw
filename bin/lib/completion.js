@@ -42,6 +42,7 @@ _nemoclaw() {
   else
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
+    words=("\${COMP_WORDS[@]}")
     cword=$COMP_CWORD
   fi
 

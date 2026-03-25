@@ -36,7 +36,7 @@ const policies = require("./lib/policies");
 const GLOBAL_COMMANDS = new Set([
   "onboard", "list", "deploy", "setup", "setup-spark",
   "start", "stop", "status", "debug", "uninstall",
-  "help", "--help", "-h", "--version", "-v",
+  "completion", "help", "--help", "-h", "--version", "-v",
 ]);
 
 const REMOTE_UNINSTALL_URL = "https://raw.githubusercontent.com/NVIDIA/NemoClaw/refs/heads/main/uninstall.sh";
@@ -427,6 +427,9 @@ function help() {
     nemoclaw debug [--quick]         Collect diagnostics for bug reports
     nemoclaw debug --output FILE     Save diagnostics tarball for GitHub issues
 
+  ${G}Shell Completion:${R}
+    nemoclaw completion [bash|zsh|fish]  Generate shell completion script
+
   Cleanup:
     nemoclaw uninstall [flags]       Run uninstall.sh (local first, curl fallback)
 
@@ -464,6 +467,7 @@ const [cmd, ...args] = process.argv.slice(2);
       case "status":      showStatus(); break;
       case "debug":       debug(args); break;
       case "uninstall":   uninstall(args); break;
+      case "completion":  require("./lib/completion").run(args); break;
       case "list":        listSandboxes(); break;
       case "--version":
       case "-v": {

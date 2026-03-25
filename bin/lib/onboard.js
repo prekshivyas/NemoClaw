@@ -1568,19 +1568,22 @@ async function createSandbox(gpu, model, provider, preferredInferenceApi = null)
   const liveExists = pruneStaleSandboxEntry(sandboxName);
 
   if (liveExists) {
-    if (isNonInteractive()) {
-      if (process.env.NEMOCLAW_RECREATE_SANDBOX !== "1") {
-        console.error(`  Sandbox '${sandboxName}' already exists.`);
-        console.error("  Set NEMOCLAW_RECREATE_SANDBOX=1 to recreate it in non-interactive mode.");
-        process.exit(1);
+    const existingSandboxState = getSandboxReuseState(sandboxName);
+    if (existingSandboxState === "ready" && process.env.NEMOCLAW_RECREATE_SANDBOX !== "1") {
+      if (isNonInteractive()) {
+        note(`  [non-interactive] Sandbox '${sandboxName}' exists and is ready — reusing it`);
+      } else {
+        console.log(`  Sandbox '${sandboxName}' already exists and is ready.`);
+        console.log("  Reusing existing sandbox.");
+        console.log("  Set NEMOCLAW_RECREATE_SANDBOX=1 to recreate it instead.");
       }
-      note(`  [non-interactive] Sandbox '${sandboxName}' exists — recreating`);
+      return sandboxName;
+    }
+
+    if (existingSandboxState === "ready") {
+      note(`  Sandbox '${sandboxName}' exists and is ready — recreating by explicit request.`);
     } else {
-      const recreate = await prompt(`  Sandbox '${sandboxName}' already exists. Recreate? [y/N]: `);
-      if (recreate.toLowerCase() !== "y") {
-        console.log("  Keeping existing sandbox.");
-        return sandboxName;
-      }
+      note(`  Sandbox '${sandboxName}' exists but is not ready — recreating it.`);
     }
     // Destroy old sandbox
     runOpenshell(["sandbox", "delete", sandboxName], { ignoreError: true });

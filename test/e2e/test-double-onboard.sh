@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Double onboard: verify that consecutive `nemoclaw onboard` runs recover
-# automatically from stale state (gateway, port forward, registry entries)
-# left behind by a previous run.
+# automatically from stale state and do not destructively recreate an
+# existing healthy sandbox unless explicitly requested.
 #
 # Regression test for issues #21, #22, #140, #152, #397.
 #
@@ -152,13 +152,12 @@ info "Stale state confirmed — NOT cleaning up before next onboard"
 # ══════════════════════════════════════════════════════════════════
 # Phase 3: Second onboard — SAME name (e2e-double-a)
 # ══════════════════════════════════════════════════════════════════
-section "Phase 3: Second onboard ($SANDBOX_A — same name, stale state)"
-info "Running nemoclaw onboard with NEMOCLAW_RECREATE_SANDBOX=1..."
+section "Phase 3: Second onboard ($SANDBOX_A — same name, safe reuse)"
+info "Running nemoclaw onboard again with the same sandbox name..."
 
 ONBOARD_LOG="$(mktemp)"
 NEMOCLAW_NON_INTERACTIVE=1 \
   NEMOCLAW_SANDBOX_NAME="$SANDBOX_A" \
-  NEMOCLAW_RECREATE_SANDBOX=1 \
   NEMOCLAW_POLICY_MODE=skip \
   nemoclaw onboard --non-interactive >"$ONBOARD_LOG" 2>&1
 exit2=$?
@@ -190,16 +189,28 @@ else
   pass "No port 18789 conflict"
 fi
 
-if grep -q "Sandbox '${SANDBOX_A}' created" <<<"$output2"; then
-  pass "Sandbox '$SANDBOX_A' recreated"
+if grep -q "\[non-interactive\] Sandbox '${SANDBOX_A}' exists and is ready — reusing it" <<<"$output2"; then
+  pass "Second onboard reused existing sandbox by default"
 else
-  fail "Sandbox '$SANDBOX_A' was not recreated"
+  fail "Second onboard did not report safe sandbox reuse"
+fi
+
+if grep -q "Sandbox '${SANDBOX_A}' created" <<<"$output2"; then
+  fail "Sandbox '$SANDBOX_A' was recreated unexpectedly"
+else
+  pass "Second onboard did not recreate the healthy sandbox"
 fi
 
 if openshell gateway info -g nemoclaw 2>/dev/null | grep -q "nemoclaw"; then
   pass "Gateway running after second onboard"
 else
   fail "Gateway not running after second onboard"
+fi
+
+if openshell sandbox get "$SANDBOX_A" >/dev/null 2>&1; then
+  pass "Sandbox '$SANDBOX_A' still exists after second onboard"
+else
+  fail "Sandbox '$SANDBOX_A' missing after second onboard"
 fi
 
 # ══════════════════════════════════════════════════════════════════
@@ -245,6 +256,12 @@ if grep -q "Sandbox '${SANDBOX_B}' created" <<<"$output3"; then
   pass "Sandbox '$SANDBOX_B' created"
 else
   fail "Sandbox '$SANDBOX_B' was not created"
+fi
+
+if openshell sandbox get "$SANDBOX_A" >/dev/null 2>&1; then
+  pass "Original sandbox '$SANDBOX_A' preserved when onboarding '$SANDBOX_B'"
+else
+  fail "Original sandbox '$SANDBOX_A' was disturbed by onboarding '$SANDBOX_B'"
 fi
 
 # ══════════════════════════════════════════════════════════════════

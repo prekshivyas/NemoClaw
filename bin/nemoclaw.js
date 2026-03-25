@@ -28,9 +28,11 @@ const {
   isRepoPrivate,
 } = require("./lib/credentials");
 const {
+  classifyGatewayStatus,
   classifySandboxLookup,
   getRecoveryCommand,
   parseLiveSandboxNames,
+  shouldAttemptGatewayRecovery,
 } = require("./lib/runtime-recovery");
 const registry = require("./lib/registry");
 const nim = require("./lib/nim");
@@ -336,10 +338,35 @@ function reconcileRegistryWithGateway() {
 
 // ── Sandbox-scoped actions ───────────────────────────────────────
 
-function sandboxConnect(sandboxName) {
+async function restoreRuntimeIfNeeded(sandboxName, sandboxState) {
+  const gatewayStatusOutput = runCapture("openshell status 2>&1", { ignoreError: true });
+  const gatewayState = classifyGatewayStatus(gatewayStatusOutput);
+  if (!shouldAttemptGatewayRecovery({ sandboxState: sandboxState.state, gatewayState: gatewayState.state })) {
+    return { recovered: false, sandboxLookup: "" };
+  }
+
+  console.log("  OpenShell gateway appears unavailable. Attempting to restore NemoClaw runtime...");
+  const { recoverGatewayRuntime } = require("./lib/onboard");
+  const recovered = await recoverGatewayRuntime();
+  if (!recovered) {
+    return { recovered: false, sandboxLookup: "" };
+  }
+
+  const sandboxLookup = runCapture(`openshell sandbox get ${shellQuote(sandboxName)} 2>&1`, { ignoreError: true });
+  return { recovered: true, sandboxLookup };
+}
+
+async function sandboxConnect(sandboxName) {
   const qn = shellQuote(sandboxName);
-  const sandboxLookup = runCapture(`openshell sandbox get ${qn} 2>&1`, { ignoreError: true });
-  const sandboxState = classifySandboxLookup(sandboxLookup);
+  let sandboxLookup = runCapture(`openshell sandbox get ${qn} 2>&1`, { ignoreError: true });
+  let sandboxState = classifySandboxLookup(sandboxLookup);
+  if (sandboxState.state === "unavailable") {
+    const restored = await restoreRuntimeIfNeeded(sandboxName, sandboxState);
+    if (restored.recovered) {
+      sandboxLookup = restored.sandboxLookup;
+      sandboxState = classifySandboxLookup(sandboxLookup);
+    }
+  }
   if (sandboxState.state === "missing") {
     registry.removeSandbox(sandboxName);
     console.error(`  Sandbox '${sandboxName}' is no longer present in OpenShell.`);
@@ -356,7 +383,7 @@ function sandboxConnect(sandboxName) {
   runInteractive(`openshell sandbox connect ${qn}`);
 }
 
-function sandboxStatus(sandboxName) {
+async function sandboxStatus(sandboxName) {
   const sb = registry.getSandbox(sandboxName);
   if (sb) {
     console.log("");
@@ -367,8 +394,15 @@ function sandboxStatus(sandboxName) {
     console.log(`    Policies: ${(sb.policies || []).join(", ") || "none"}`);
   }
 
-  const sandboxLookup = runCapture(`openshell sandbox get ${shellQuote(sandboxName)} 2>&1`, { ignoreError: true });
-  const sandboxState = classifySandboxLookup(sandboxLookup);
+  let sandboxLookup = runCapture(`openshell sandbox get ${shellQuote(sandboxName)} 2>&1`, { ignoreError: true });
+  let sandboxState = classifySandboxLookup(sandboxLookup);
+  if (sandboxState.state === "unavailable") {
+    const restored = await restoreRuntimeIfNeeded(sandboxName, sandboxState);
+    if (restored.recovered) {
+      sandboxLookup = restored.sandboxLookup;
+      sandboxState = classifySandboxLookup(sandboxLookup);
+    }
+  }
   if (sandboxState.state === "missing") {
     registry.removeSandbox(sandboxName);
     console.log("");
@@ -552,8 +586,8 @@ const [cmd, ...args] = process.argv.slice(2);
     const actionArgs = args.slice(1);
 
     switch (action) {
-      case "connect":     sandboxConnect(cmd); break;
-      case "status":      sandboxStatus(cmd); break;
+      case "connect":     await sandboxConnect(cmd); break;
+      case "status":      await sandboxStatus(cmd); break;
       case "logs":        sandboxLogs(cmd, actionArgs.includes("--follow")); break;
       case "policy-add":  await sandboxPolicyAdd(cmd); break;
       case "policy-list": sandboxPolicyList(cmd); break;

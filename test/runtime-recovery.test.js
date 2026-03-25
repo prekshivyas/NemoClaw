@@ -4,8 +4,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyGatewayStatus,
   classifySandboxLookup,
   parseLiveSandboxNames,
+  shouldAttemptGatewayRecovery,
 } from "../bin/lib/runtime-recovery";
 
 describe("runtime recovery helpers", () => {
@@ -54,5 +56,19 @@ describe("runtime recovery helpers", () => {
         ].join("\n")
       ).state
     ).toBe("present");
+  });
+
+  it("classifies gateway status output for restart recovery", () => {
+    expect(classifyGatewayStatus("Gateway: nemoclaw\nStatus: Connected").state).toBe("connected");
+    expect(classifyGatewayStatus("Error:   × No active gateway").state).toBe("unavailable");
+    expect(classifyGatewayStatus("").state).toBe("inactive");
+  });
+
+  it("only attempts gateway recovery when sandbox access is unavailable and gateway is down", () => {
+    expect(shouldAttemptGatewayRecovery({ sandboxState: "unavailable", gatewayState: "unavailable" })).toBe(true);
+    expect(shouldAttemptGatewayRecovery({ sandboxState: "unavailable", gatewayState: "inactive" })).toBe(true);
+    expect(shouldAttemptGatewayRecovery({ sandboxState: "present", gatewayState: "unavailable" })).toBe(false);
+    expect(shouldAttemptGatewayRecovery({ sandboxState: "missing", gatewayState: "inactive" })).toBe(false);
+    expect(shouldAttemptGatewayRecovery({ sandboxState: "unavailable", gatewayState: "connected" })).toBe(false);
   });
 });

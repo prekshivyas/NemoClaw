@@ -1468,15 +1468,9 @@ async function startGateway(_gpu) {
   // sandbox itself does not need direct GPU access. Passing --gpu causes
   // FailedPrecondition errors when the gateway's k3s device plugin cannot
   // allocate GPUs. See: https://build.nvidia.com/spark/nemoclaw/instructions
-  const gatewayEnv = {};
-  const openshellVersion = getInstalledOpenshellVersion();
-  const stableGatewayImage = openshellVersion
-    ? `ghcr.io/nvidia/openshell/cluster:${openshellVersion}`
-    : null;
-  if (stableGatewayImage && openshellVersion) {
-    gatewayEnv.OPENSHELL_CLUSTER_IMAGE = stableGatewayImage;
-    gatewayEnv.IMAGE_TAG = openshellVersion;
-    console.log(`  Using pinned OpenShell gateway image: ${stableGatewayImage}`);
+  const gatewayEnv = getGatewayStartEnv();
+  if (gatewayEnv.OPENSHELL_CLUSTER_IMAGE) {
+    console.log(`  Using pinned OpenShell gateway image: ${gatewayEnv.OPENSHELL_CLUSTER_IMAGE}`);
   }
 
   runOpenshell(["gateway", "start", ...gwArgs], { ignoreError: false, env: gatewayEnv });
@@ -1505,6 +1499,49 @@ async function startGateway(_gpu) {
   sleep(5);
   runOpenshell(["gateway", "select", GATEWAY_NAME], { ignoreError: true });
   process.env.OPENSHELL_GATEWAY = GATEWAY_NAME;
+}
+
+function getGatewayStartEnv() {
+  const gatewayEnv = {};
+  const openshellVersion = getInstalledOpenshellVersion();
+  const stableGatewayImage = openshellVersion
+    ? `ghcr.io/nvidia/openshell/cluster:${openshellVersion}`
+    : null;
+  if (stableGatewayImage && openshellVersion) {
+    gatewayEnv.OPENSHELL_CLUSTER_IMAGE = stableGatewayImage;
+    gatewayEnv.IMAGE_TAG = openshellVersion;
+  }
+  return gatewayEnv;
+}
+
+async function recoverGatewayRuntime() {
+  runOpenshell(["gateway", "select", GATEWAY_NAME], { ignoreError: true });
+  let status = runCaptureOpenshell(["status"], { ignoreError: true });
+  if (status.includes("Connected")) {
+    process.env.OPENSHELL_GATEWAY = GATEWAY_NAME;
+    return true;
+  }
+
+  runOpenshell(["gateway", "start", "--name", GATEWAY_NAME], {
+    ignoreError: true,
+    env: getGatewayStartEnv(),
+  });
+  runOpenshell(["gateway", "select", GATEWAY_NAME], { ignoreError: true });
+
+  for (let i = 0; i < 5; i++) {
+    status = runCaptureOpenshell(["status"], { ignoreError: true });
+    if (status.includes("Connected")) {
+      process.env.OPENSHELL_GATEWAY = GATEWAY_NAME;
+      const runtime = getContainerRuntime();
+      if (shouldPatchCoredns(runtime)) {
+        run(`bash "${path.join(SCRIPTS, "fix-coredns.sh")}" ${GATEWAY_NAME} 2>&1 || true`, { ignoreError: true });
+      }
+      return true;
+    }
+    sleep(2);
+  }
+
+  return false;
 }
 
 // ── Step 3: Sandbox ──────────────────────────────────────────────
@@ -2347,7 +2384,7 @@ async function onboard(opts = {}) {
   NON_INTERACTIVE = opts.nonInteractive || process.env.NEMOCLAW_NON_INTERACTIVE === "1";
   delete process.env.OPENSHELL_GATEWAY;
   const resume = opts.resume === true;
-  let session = null;
+  let session;
   if (resume) {
     session = onboardSession.loadSession();
     if (!session || session.resumable === false) {
@@ -2405,18 +2442,15 @@ async function onboard(opts = {}) {
   if (resume) note("  (resume mode)");
   console.log("  ===================");
 
-  let gpu = null;
-  let preflightCompleted = false;
+  let gpu;
   const resumePreflight = resume && session?.steps?.preflight?.status === "complete";
   if (resumePreflight) {
     resumeStepMessage("preflight", "cached");
     gpu = nim.detectGpu();
-    preflightCompleted = true;
   } else {
     startRecordedStep("preflight");
     gpu = await preflight();
     onboardSession.markStepComplete("preflight");
-    preflightCompleted = true;
   }
 
   const gatewayStatus = runCapture("openshell status 2>&1", { ignoreError: true });
@@ -2440,10 +2474,6 @@ async function onboard(opts = {}) {
       }
     }
     startRecordedStep("gateway");
-    if (!preflightCompleted) {
-      gpu = await preflight();
-      preflightCompleted = true;
-    }
     await startGateway(gpu);
     onboardSession.markStepComplete("gateway");
   }
@@ -2508,10 +2538,6 @@ async function onboard(opts = {}) {
       }
     }
     startRecordedStep("sandbox", { provider, model });
-    if (!preflightCompleted) {
-      gpu = await preflight();
-      preflightCompleted = true;
-    }
     sandboxName = await createSandbox(gpu, model, provider, preferredInferenceApi);
     onboardSession.markStepComplete("sandbox", { sandboxName, provider, model, nimContainer });
   }
@@ -2534,6 +2560,7 @@ module.exports = {
   copyBuildContextDir,
   createSandbox,
   getFutureShellPathHint,
+  getGatewayStartEnv,
   getGatewayReuseState,
   getSandboxInferenceConfig,
   getInstalledOpenshellVersion,
@@ -2552,6 +2579,7 @@ module.exports = {
   onboardSession,
   pruneStaleSandboxEntry,
   repairRecordedSandbox,
+  recoverGatewayRuntime,
   runCaptureOpenshell,
   setupInference,
   setupNim,

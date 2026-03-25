@@ -4,6 +4,7 @@
 const onboardSession = require("./onboard-session");
 
 function stripAnsi(text) {
+  // eslint-disable-next-line no-control-regex
   return String(text || "").replace(/\x1b\[[0-9;]*m/g, "");
 }
 
@@ -41,6 +42,28 @@ function classifySandboxLookup(output = "") {
   return { state: "present", reason: "ok" };
 }
 
+function classifyGatewayStatus(output = "") {
+  const clean = stripAnsi(output).trim();
+  if (!clean) {
+    return { state: "inactive", reason: "empty" };
+  }
+  if (/Connected/i.test(clean)) {
+    return { state: "connected", reason: "ok" };
+  }
+  if (
+    /No active gateway|transport error|client error|Connection reset by peer|Connection refused|Gateway: .*Error/i.test(
+      clean
+    )
+  ) {
+    return { state: "unavailable", reason: "gateway_unavailable" };
+  }
+  return { state: "inactive", reason: "not_connected" };
+}
+
+function shouldAttemptGatewayRecovery({ sandboxState = "missing", gatewayState = "inactive" } = {}) {
+  return sandboxState === "unavailable" && gatewayState !== "connected";
+}
+
 function getRecoveryCommand() {
   const session = onboardSession.loadSession();
   if (session && session.resumable !== false) {
@@ -50,7 +73,9 @@ function getRecoveryCommand() {
 }
 
 module.exports = {
+  classifyGatewayStatus,
   classifySandboxLookup,
   getRecoveryCommand,
   parseLiveSandboxNames,
+  shouldAttemptGatewayRecovery,
 };

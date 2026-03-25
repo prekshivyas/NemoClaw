@@ -58,7 +58,7 @@ _nemoclaw() {
   fi
 
   if [[ $cword -eq 3 ]]; then
-    local action="${words[2]}"
+    local action="\${words[2]}"
     case "$action" in
       logs)
         COMPREPLY=($(compgen -W "--follow" -- "$cur"))
@@ -139,7 +139,7 @@ _nemoclaw() {
   fi
 }
 
-_nemoclaw "\$@"
+_nemoclaw "$@"
 `;
 }
 

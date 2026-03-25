@@ -170,7 +170,10 @@ fi
 info "Node.js manager: $NODE_MGR"
 
 # Compare two semver strings (major.minor.patch). Returns 0 if $1 >= $2.
+# Rejects prerelease suffixes (e.g. "22.16.0-rc.1") to avoid arithmetic errors.
 version_gte() {
+  [[ "$1" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || return 1
+  [[ "$2" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]] || return 1
   local -a a b
   IFS=. read -ra a <<<"$1"
   IFS=. read -ra b <<<"$2"
@@ -251,7 +254,7 @@ install_node() {
       sudo apt-get install -y -qq nodejs >/dev/null 2>&1
       ;;
     none)
-      fail "No Node.js version manager found. Install Node.js 22 manually, then re-run."
+      fail "No Node.js version manager found. Install Node.js >=${MIN_NODE_VERSION} manually, then re-run."
       ;;
   esac
 

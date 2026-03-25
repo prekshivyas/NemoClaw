@@ -137,13 +137,17 @@ else
   exit 1
 fi
 
-[ -f "$SESSION_FILE" ] \
-  && pass "Onboard session file created" \
-  || fail "Onboard session file missing after interrupted run"
+if [ -f "$SESSION_FILE" ]; then
+  pass "Onboard session file created"
+else
+  fail "Onboard session file missing after interrupted run"
+fi
 
-openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1 \
-  && pass "Sandbox '$SANDBOX_NAME' exists after interrupted run" \
-  || fail "Sandbox '$SANDBOX_NAME' not found after interrupted run"
+if openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1; then
+  pass "Sandbox '$SANDBOX_NAME' exists after interrupted run"
+else
+  fail "Sandbox '$SANDBOX_NAME' not found after interrupted run"
+fi
 
 # ══════════════════════════════════════════════════════════════════
 # Phase 3: Repair missing sandbox on resume
@@ -154,9 +158,11 @@ info "Deleting the recorded sandbox under the session, then resuming..."
 openshell sandbox delete "$SANDBOX_NAME" >/dev/null 2>&1 || true
 openshell forward stop 18789 >/dev/null 2>&1 || true
 
-openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1 \
-  && fail "Sandbox '$SANDBOX_NAME' still exists after forced deletion" \
-  || pass "Sandbox '$SANDBOX_NAME' removed to simulate stale recorded state"
+if openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1; then
+  fail "Sandbox '$SANDBOX_NAME' still exists after forced deletion"
+else
+  pass "Sandbox '$SANDBOX_NAME' removed to simulate stale recorded state"
+fi
 
 REPAIR_LOG="$(mktemp)"
 NVIDIA_API_KEY="$RESTORE_API_KEY" \
@@ -176,25 +182,35 @@ else
   exit 1
 fi
 
-echo "$repair_output" | grep -q "\[resume\] Skipping preflight (cached)" \
-  && pass "Repair resume skipped preflight" \
-  || fail "Repair resume did not skip preflight"
+if echo "$repair_output" | grep -q "\[resume\] Skipping preflight (cached)"; then
+  pass "Repair resume skipped preflight"
+else
+  fail "Repair resume did not skip preflight"
+fi
 
-echo "$repair_output" | grep -q "\[resume\] Skipping gateway (running)" \
-  && pass "Repair resume skipped gateway" \
-  || fail "Repair resume did not skip gateway"
+if echo "$repair_output" | grep -q "\[resume\] Skipping gateway (running)"; then
+  pass "Repair resume skipped gateway"
+else
+  fail "Repair resume did not skip gateway"
+fi
 
-echo "$repair_output" | grep -q "\[resume\] Recorded sandbox state is unavailable; recreating it." \
-  && pass "Repair resume detected missing sandbox" \
-  || fail "Repair resume did not report missing sandbox recreation"
+if echo "$repair_output" | grep -q "\[resume\] Recorded sandbox state is unavailable; recreating it."; then
+  pass "Repair resume detected missing sandbox"
+else
+  fail "Repair resume did not report missing sandbox recreation"
+fi
 
-echo "$repair_output" | grep -q "\[3/7\] Creating sandbox" \
-  && pass "Repair resume recreated sandbox" \
-  || fail "Repair resume did not rerun sandbox creation"
+if echo "$repair_output" | grep -q "\[3/7\] Creating sandbox"; then
+  pass "Repair resume recreated sandbox"
+else
+  fail "Repair resume did not rerun sandbox creation"
+fi
 
-run_nemoclaw "$SANDBOX_NAME" status >/dev/null 2>&1 \
-  && pass "Repaired sandbox '$SANDBOX_NAME' is manageable" \
-  || fail "Repaired sandbox '$SANDBOX_NAME' status failed"
+if run_nemoclaw "$SANDBOX_NAME" status >/dev/null 2>&1; then
+  pass "Repaired sandbox '$SANDBOX_NAME' is manageable"
+else
+  fail "Repaired sandbox '$SANDBOX_NAME' status failed"
+fi
 
 # ══════════════════════════════════════════════════════════════════
 # Phase 4: Reject conflicting sandbox
@@ -218,9 +234,11 @@ else
   fail "Resume exited $sandbox_conflict_exit for conflicting sandbox (expected 1)"
 fi
 
-echo "$sandbox_conflict_output" | grep -q "Resumable state belongs to sandbox '${SANDBOX_NAME}', not '${OTHER_SANDBOX_NAME}'." \
-  && pass "Conflicting sandbox message is explicit" \
-  || fail "Conflicting sandbox message missing or incorrect"
+if echo "$sandbox_conflict_output" | grep -q "Resumable state belongs to sandbox '${SANDBOX_NAME}', not '${OTHER_SANDBOX_NAME}'."; then
+  pass "Conflicting sandbox message is explicit"
+else
+  fail "Conflicting sandbox message missing or incorrect"
+fi
 
 # ══════════════════════════════════════════════════════════════════
 # Phase 5: Reject conflicting provider/model
@@ -246,13 +264,17 @@ else
   fail "Resume exited $provider_conflict_exit for conflicting provider/model (expected 1)"
 fi
 
-echo "$provider_conflict_output" | grep -q "Resumable state recorded provider 'nvidia-nim', not 'cloud'." \
-  && pass "Conflicting provider message is explicit" \
-  || fail "Conflicting provider message missing or incorrect"
+if echo "$provider_conflict_output" | grep -q "Resumable state recorded provider 'nvidia-nim', not 'cloud'."; then
+  pass "Conflicting provider message is explicit"
+else
+  fail "Conflicting provider message missing or incorrect"
+fi
 
-echo "$provider_conflict_output" | grep -q "Resumable state recorded model 'nvidia/nemotron-3-super-120b-a12b', not 'nvidia/conflicting-model'." \
-  && pass "Conflicting model message is explicit" \
-  || fail "Conflicting model message missing or incorrect"
+if echo "$provider_conflict_output" | grep -q "Resumable state recorded model 'nvidia/nemotron-3-super-120b-a12b', not 'nvidia/conflicting-model'."; then
+  pass "Conflicting model message is explicit"
+else
+  fail "Conflicting model message missing or incorrect"
+fi
 
 # ══════════════════════════════════════════════════════════════════
 # Phase 6: Final cleanup
@@ -267,13 +289,17 @@ openshell forward stop 18789 2>/dev/null || true
 openshell gateway destroy -g nemoclaw 2>/dev/null || true
 rm -f "$SESSION_FILE"
 
-openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1 \
-  && fail "Sandbox '$SANDBOX_NAME' still exists after cleanup" \
-  || pass "Sandbox '$SANDBOX_NAME' cleaned up"
+if openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1; then
+  fail "Sandbox '$SANDBOX_NAME' still exists after cleanup"
+else
+  pass "Sandbox '$SANDBOX_NAME' cleaned up"
+fi
 
-[ -f "$SESSION_FILE" ] \
-  && fail "Onboard session file still exists after cleanup" \
-  || pass "Onboard session file cleaned up"
+if [ -f "$SESSION_FILE" ]; then
+  fail "Onboard session file still exists after cleanup"
+else
+  pass "Onboard session file cleaned up"
+fi
 
 pass "Final cleanup complete"
 

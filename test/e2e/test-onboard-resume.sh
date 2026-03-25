@@ -143,21 +143,29 @@ else
   exit 1
 fi
 
-echo "$first_output" | grep -q "Sandbox '${SANDBOX_NAME}' created" \
-  && pass "Sandbox '$SANDBOX_NAME' created before interruption" \
-  || fail "Sandbox creation not confirmed in first run output"
+if echo "$first_output" | grep -q "Sandbox '${SANDBOX_NAME}' created"; then
+  pass "Sandbox '$SANDBOX_NAME' created before interruption"
+else
+  fail "Sandbox creation not confirmed in first run output"
+fi
 
-echo "$first_output" | grep -q "NVIDIA_API_KEY is required for cloud provider in non-interactive mode." \
-  && pass "First run failed at provider selection as intended" \
-  || fail "First run did not fail at the expected provider-selection step"
+if echo "$first_output" | grep -q "NVIDIA_API_KEY is required for cloud provider in non-interactive mode."; then
+  pass "First run failed at provider selection as intended"
+else
+  fail "First run did not fail at the expected provider-selection step"
+fi
 
-openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1 \
-  && pass "Sandbox '$SANDBOX_NAME' exists after interrupted run" \
-  || fail "Sandbox '$SANDBOX_NAME' not found after interrupted run"
+if openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1; then
+  pass "Sandbox '$SANDBOX_NAME' exists after interrupted run"
+else
+  fail "Sandbox '$SANDBOX_NAME' not found after interrupted run"
+fi
 
-[ -f "$SESSION_FILE" ] \
-  && pass "Onboard session file created" \
-  || fail "Onboard session file missing after interrupted run"
+if [ -f "$SESSION_FILE" ]; then
+  pass "Onboard session file created"
+else
+  fail "Onboard session file missing after interrupted run"
+fi
 
 node -e '
 const fs = require("fs");
@@ -196,37 +204,53 @@ else
   exit 1
 fi
 
-echo "$resume_output" | grep -q "\[resume\] Skipping preflight (cached)" \
-  && pass "Resume skipped preflight" \
-  || fail "Resume did not skip preflight"
+if echo "$resume_output" | grep -q "\[resume\] Skipping preflight (cached)"; then
+  pass "Resume skipped preflight"
+else
+  fail "Resume did not skip preflight"
+fi
 
-echo "$resume_output" | grep -q "\[resume\] Skipping gateway (running)" \
-  && pass "Resume skipped gateway" \
-  || fail "Resume did not skip gateway"
+if echo "$resume_output" | grep -q "\[resume\] Skipping gateway (running)"; then
+  pass "Resume skipped gateway"
+else
+  fail "Resume did not skip gateway"
+fi
 
-echo "$resume_output" | grep -q "\[resume\] Skipping sandbox (${SANDBOX_NAME})" \
-  && pass "Resume skipped sandbox" \
-  || fail "Resume did not skip sandbox"
+if echo "$resume_output" | grep -q "\[resume\] Skipping sandbox (${SANDBOX_NAME})"; then
+  pass "Resume skipped sandbox"
+else
+  fail "Resume did not skip sandbox"
+fi
 
-echo "$resume_output" | grep -q "\[1/7\] Preflight checks" \
-  && fail "Resume reran preflight unexpectedly" \
-  || pass "Resume did not rerun preflight"
+if echo "$resume_output" | grep -q "\[1/7\] Preflight checks"; then
+  fail "Resume reran preflight unexpectedly"
+else
+  pass "Resume did not rerun preflight"
+fi
 
-echo "$resume_output" | grep -q "\[2/7\] Starting OpenShell gateway" \
-  && fail "Resume reran gateway startup unexpectedly" \
-  || pass "Resume did not rerun gateway startup"
+if echo "$resume_output" | grep -q "\[2/7\] Starting OpenShell gateway"; then
+  fail "Resume reran gateway startup unexpectedly"
+else
+  pass "Resume did not rerun gateway startup"
+fi
 
-echo "$resume_output" | grep -q "\[3/7\] Creating sandbox" \
-  && fail "Resume reran sandbox creation unexpectedly" \
-  || pass "Resume did not rerun sandbox creation"
+if echo "$resume_output" | grep -q "\[3/7\] Creating sandbox"; then
+  fail "Resume reran sandbox creation unexpectedly"
+else
+  pass "Resume did not rerun sandbox creation"
+fi
 
-echo "$resume_output" | grep -q "\[5/7\] Setting up inference provider" \
-  && pass "Resume continued with inference setup" \
-  || fail "Resume did not continue with inference setup"
+if echo "$resume_output" | grep -q "\[5/7\] Setting up inference provider"; then
+  pass "Resume continued with inference setup"
+else
+  fail "Resume did not continue with inference setup"
+fi
 
-run_nemoclaw "$SANDBOX_NAME" status >/dev/null 2>&1 \
-  && pass "Sandbox '$SANDBOX_NAME' is manageable after resume" \
-  || fail "Sandbox '$SANDBOX_NAME' status failed after resume"
+if run_nemoclaw "$SANDBOX_NAME" status >/dev/null 2>&1; then
+  pass "Sandbox '$SANDBOX_NAME' is manageable after resume"
+else
+  fail "Sandbox '$SANDBOX_NAME' status failed after resume"
+fi
 
 node -e '
 const fs = require("fs");
@@ -247,9 +271,11 @@ case $? in
   *) fail "Session file did not record the expected completed state after resume" ;;
 esac
 
-[ -f "$REGISTRY" ] && grep -q "$SANDBOX_NAME" "$REGISTRY" \
-  && pass "Registry contains resumed sandbox entry" \
-  || fail "Registry does not contain resumed sandbox entry"
+if [ -f "$REGISTRY" ] && grep -q "$SANDBOX_NAME" "$REGISTRY"; then
+  pass "Registry contains resumed sandbox entry"
+else
+  fail "Registry does not contain resumed sandbox entry"
+fi
 
 # ══════════════════════════════════════════════════════════════════
 # Phase 4: Final cleanup
@@ -262,13 +288,17 @@ openshell forward stop 18789 2>/dev/null || true
 openshell gateway destroy -g nemoclaw 2>/dev/null || true
 rm -f "$SESSION_FILE"
 
-openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1 \
-  && fail "Sandbox '$SANDBOX_NAME' still exists after cleanup" \
-  || pass "Sandbox '$SANDBOX_NAME' cleaned up"
+if openshell sandbox get "$SANDBOX_NAME" >/dev/null 2>&1; then
+  fail "Sandbox '$SANDBOX_NAME' still exists after cleanup"
+else
+  pass "Sandbox '$SANDBOX_NAME' cleaned up"
+fi
 
-[ -f "$SESSION_FILE" ] \
-  && fail "Onboard session file still exists after cleanup" \
-  || pass "Onboard session file cleaned up"
+if [ -f "$SESSION_FILE" ]; then
+  fail "Onboard session file still exists after cleanup"
+else
+  pass "Onboard session file cleaned up"
+fi
 
 pass "Final cleanup complete"
 

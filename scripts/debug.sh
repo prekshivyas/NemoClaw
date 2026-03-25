@@ -251,6 +251,7 @@ fi
 
 section "Onboard Session"
 if [ -f "$ONBOARD_SESSION_HELPER" ] && command -v node >/dev/null 2>&1; then
+  # shellcheck disable=SC2016
   collect "onboard-session-summary" node -e '
     const helper = require(process.argv[1]);
     const summary = helper.summarizeForDebug();

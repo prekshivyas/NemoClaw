@@ -232,16 +232,16 @@ function getSandboxStateFromOutputs(sandboxName, getOutput = "", listOutput = ""
 
 function getSandboxReuseState(sandboxName) {
   if (!sandboxName) return "missing";
-  const getOutput = runCapture(`openshell sandbox get "${sandboxName}" 2>/dev/null`, { ignoreError: true });
-  const listOutput = runCapture("openshell sandbox list 2>&1", { ignoreError: true });
+  const getOutput = runCaptureOpenshell(["sandbox", "get", sandboxName], { ignoreError: true });
+  const listOutput = runCaptureOpenshell(["sandbox", "list"], { ignoreError: true });
   return getSandboxStateFromOutputs(sandboxName, getOutput, listOutput);
 }
 
 function repairRecordedSandbox(sandboxName) {
   if (!sandboxName) return;
   note(`  [resume] Cleaning up recorded sandbox '${sandboxName}' before recreating it.`);
-  run(`openshell forward stop 18789 2>/dev/null || true`, { ignoreError: true });
-  run(`openshell sandbox delete "${sandboxName}" 2>/dev/null || true`, { ignoreError: true });
+  runOpenshell(["forward", "stop", "18789"], { ignoreError: true });
+  runOpenshell(["sandbox", "delete", sandboxName], { ignoreError: true });
   registry.removeSandbox(sandboxName);
 }
 

@@ -10,9 +10,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSandboxConfigSyncScript,
+  classifySandboxCreateFailure,
   getGatewayReuseState,
   getFutureShellPathHint,
-  createSandbox,
   getSandboxInferenceConfig,
   getInstalledOpenshellVersion,
   getRequestedModelHint,
@@ -24,13 +24,45 @@ import {
   getStableGatewayImageRef,
   isGatewayHealthy,
   patchStagedDockerfile,
-  pruneStaleSandboxEntry,
-  runCaptureOpenshell,
   shouldIncludeBuildContextPath,
   writeSandboxConfigSyncFile,
 } from "../bin/lib/onboard";
 
 describe("onboard helpers", () => {
+  it("classifies sandbox create timeout failures and tracks upload progress", () => {
+    expect(
+      classifySandboxCreateFailure("Error: failed to read image export stream\nTimeout error").kind
+    ).toBe("image_transfer_timeout");
+    expect(
+      classifySandboxCreateFailure(
+        [
+          "  Pushing image openshell/sandbox-from:123 into gateway \"nemoclaw\"",
+          "  [progress] Uploaded to gateway",
+          "Error: failed to read image export stream",
+        ].join("\n")
+      )
+    ).toEqual({
+      kind: "image_transfer_timeout",
+      uploadedToGateway: true,
+    });
+  });
+
+  it("classifies sandbox create connection resets and incomplete create streams", () => {
+    expect(classifySandboxCreateFailure("Connection reset by peer").kind).toBe("image_transfer_reset");
+    expect(
+      classifySandboxCreateFailure(
+        [
+          "  Image openshell/sandbox-from:123 is available in the gateway.",
+          "Created sandbox: my-assistant",
+          "Error: stream closed unexpectedly",
+        ].join("\n")
+      )
+    ).toEqual({
+      kind: "sandbox_create_incomplete",
+      uploadedToGateway: true,
+    });
+  });
+
   it("builds a sandbox sync script that only writes nemoclaw config", () => {
     const script = buildSandboxConfigSyncScript({
       endpointType: "custom",

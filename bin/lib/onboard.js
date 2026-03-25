@@ -1016,18 +1016,63 @@ function copyBuildContextDir(sourceDir, destinationDir) {
   });
 }
 
-function printSandboxCreateRecoveryHints(output = "") {
+function classifySandboxCreateFailure(output = "") {
   const text = String(output || "");
+  const uploadedToGateway =
+    /\[progress\]\s+Uploaded to gateway/i.test(text) ||
+    /Image .*available in the gateway/i.test(text);
+
   if (/failed to read image export stream|Timeout error/i.test(text)) {
+    return {
+      kind: "image_transfer_timeout",
+      uploadedToGateway,
+    };
+  }
+
+  if (/Connection reset by peer/i.test(text)) {
+    return {
+      kind: "image_transfer_reset",
+      uploadedToGateway,
+    };
+  }
+
+  if (/Created sandbox:/i.test(text)) {
+    return {
+      kind: "sandbox_create_incomplete",
+      uploadedToGateway: true,
+    };
+  }
+
+  return {
+    kind: "unknown",
+    uploadedToGateway,
+  };
+}
+
+function printSandboxCreateRecoveryHints(output = "") {
+  const failure = classifySandboxCreateFailure(output);
+  if (failure.kind === "image_transfer_timeout") {
     console.error("  Hint: image upload into the OpenShell gateway timed out.");
     console.error("  Recovery: nemoclaw onboard --resume");
+    if (failure.uploadedToGateway) {
+      console.error("  Progress reached the gateway upload stage, so resume may be able to reuse existing gateway state.");
+    }
     console.error("  If this repeats, check Docker memory and retry on a host with more RAM.");
     return;
   }
-  if (/Connection reset by peer/i.test(text)) {
+  if (failure.kind === "image_transfer_reset") {
     console.error("  Hint: the image push/import stream was interrupted.");
     console.error("  Recovery: nemoclaw onboard --resume");
+    if (failure.uploadedToGateway) {
+      console.error("  The image appears to have reached the gateway before the stream failed.");
+    }
     console.error("  If this repeats, restart Docker or the gateway and retry.");
+    return;
+  }
+  if (failure.kind === "sandbox_create_incomplete") {
+    console.error("  Hint: sandbox creation started but the create stream did not finish cleanly.");
+    console.error("  Recovery: nemoclaw onboard --resume");
+    console.error("  Check: openshell sandbox list        # verify whether the sandbox became ready");
     return;
   }
   console.error("  Recovery: nemoclaw onboard --resume");
@@ -2561,6 +2606,7 @@ async function onboard(opts = {}) {
 module.exports = {
   buildSandboxConfigSyncScript,
   copyBuildContextDir,
+  classifySandboxCreateFailure,
   createSandbox,
   getFutureShellPathHint,
   getGatewayStartEnv,

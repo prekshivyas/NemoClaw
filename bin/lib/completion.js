@@ -13,6 +13,10 @@ const SANDBOX_ACTIONS = [
   "connect", "status", "logs", "policy-add", "policy-list", "destroy",
 ];
 
+// Flags accepted by scripts/debug.sh — keep in sync or update the
+// "completion flags match debug.sh" test when debug.sh gains new flags.
+const DEBUG_FLAGS = ["--quick", "--sandbox", "--output", "--help"];
+
 function getSandboxNames() {
   try {
     const { sandboxes } = registry.listSandboxes();
@@ -23,6 +27,11 @@ function getSandboxNames() {
 }
 
 function bash() {
+  const globalCmds = GLOBAL_COMMANDS.join(" ");
+  const sandboxActions = SANDBOX_ACTIONS.join(" ");
+  const debugFlags = DEBUG_FLAGS.join(" ");
+  const noArgCmds = GLOBAL_COMMANDS.filter((c) => c !== "debug").join("|");
+
   return `# nemoclaw bash completion
 # Add to ~/.bashrc:  eval "$(nemoclaw completion bash)"
 
@@ -36,8 +45,8 @@ _nemoclaw() {
     cword=$COMP_CWORD
   fi
 
-  local global_cmds="${GLOBAL_COMMANDS.join(" ")}"
-  local sandbox_actions="${SANDBOX_ACTIONS.join(" ")}"
+  local global_cmds="${globalCmds}"
+  local sandbox_actions="${sandboxActions}"
 
   if [[ $cword -eq 1 ]]; then
     # Complete global commands + sandbox names
@@ -50,10 +59,10 @@ _nemoclaw() {
   if [[ $cword -eq 2 ]]; then
     # If first arg is a sandbox name, complete with actions
     case "$prev" in
-      onboard|list|deploy|setup-spark|start|stop|status|help|completion|uninstall|--help|-h|--version|-v)
+      ${noArgCmds})
         return ;;
       debug)
-        COMPREPLY=($(compgen -W "--quick --output --help" -- "$cur"))
+        COMPREPLY=($(compgen -W "${debugFlags}" -- "$cur"))
         return ;;
     esac
     # Assume sandbox name → offer actions
@@ -78,78 +87,92 @@ complete -F _nemoclaw nemoclaw
 `;
 }
 
+// The zsh completion script uses plain string concatenation instead of a single
+// template literal.  This avoids mixing JS interpolation (${expr}) with zsh
+// parameter expansion (${words[2]}, ${(f)...}) in the same string, which
+// previously caused escaping bugs caught only by the linter.
+
 function zsh() {
-  return `#compdef nemoclaw
-# nemoclaw zsh completion
-# Add to ~/.zshrc:  eval "$(nemoclaw completion zsh)"
+  const noArgCmds = GLOBAL_COMMANDS.filter((c) => c !== "debug").join("|");
 
-_nemoclaw() {
-  local -a global_cmds sandbox_actions sandboxes
-
-  global_cmds=(
-    'onboard:Configure inference endpoint and credentials'
-    'list:List all sandboxes'
-    'deploy:Deploy to a Brev VM'
-    'setup-spark:Set up on DGX Spark'
-    'start:Start auxiliary services'
-    'stop:Stop all services'
-    'status:Show sandbox list and service status'
-    'debug:Collect diagnostics for bug reports'
-    'uninstall:Uninstall NemoClaw'
-    'help:Show help'
-    'completion:Generate shell completion script'
-    '--help:Show help'
-    '-h:Show help'
-    '--version:Show version'
-    '-v:Show version'
-  )
-
-  sandbox_actions=(
-    'connect:Shell into a running sandbox'
-    'status:Sandbox health and NIM status'
-    'logs:Stream sandbox logs'
-    'policy-add:Add a network or filesystem policy preset'
-    'policy-list:List presets'
-    'destroy:Stop NIM and delete sandbox'
-  )
-
-  if (( CURRENT == 2 )); then
-    # Get sandbox names dynamically
-    sandboxes=(\${(f)"$(nemoclaw completion --list-sandboxes 2>/dev/null)"})
-    _describe 'command' global_cmds -- sandboxes
-    return
-  fi
-
-  if (( CURRENT == 3 )); then
-    case "\${words[2]}" in
-      onboard|list|deploy|setup-spark|start|stop|status|help|completion|uninstall|--help|-h|--version|-v)
-        return ;;
-      debug)
-        _arguments '--quick[Quick diagnostics]' '--output[Save to file]:file:_files' '--help[Show help]'
-        return ;;
-    esac
-    # Assume sandbox name → offer actions
-    _describe 'action' sandbox_actions
-    return
-  fi
-
-  if (( CURRENT == 4 )); then
-    case "\${words[3]}" in
-      logs)
-        _arguments '--follow[Follow log output]'
-        return ;;
-      destroy)
-        _arguments '--yes[Skip confirmation]' '--force[Skip confirmation]'
-        return ;;
-    esac
-  fi
-}
-
-_nemoclaw "$@"
-`;
+  return "#compdef nemoclaw\n"
+    + "# nemoclaw zsh completion\n"
+    + '# Add to ~/.zshrc:  eval "$(nemoclaw completion zsh)"\n'
+    + "\n"
+    + "_nemoclaw() {\n"
+    + "  local -a global_cmds sandbox_actions sandboxes\n"
+    + "\n"
+    + "  global_cmds=(\n"
+    + "    'onboard:Configure inference endpoint and credentials'\n"
+    + "    'list:List all sandboxes'\n"
+    + "    'deploy:Deploy to a Brev VM'\n"
+    + "    'setup-spark:Set up on DGX Spark'\n"
+    + "    'start:Start auxiliary services'\n"
+    + "    'stop:Stop all services'\n"
+    + "    'status:Show sandbox list and service status'\n"
+    + "    'debug:Collect diagnostics for bug reports'\n"
+    + "    'uninstall:Uninstall NemoClaw'\n"
+    + "    'help:Show help'\n"
+    + "    'completion:Generate shell completion script'\n"
+    + "    '--help:Show help'\n"
+    + "    '-h:Show help'\n"
+    + "    '--version:Show version'\n"
+    + "    '-v:Show version'\n"
+    + "  )\n"
+    + "\n"
+    + "  sandbox_actions=(\n"
+    + "    'connect:Shell into a running sandbox'\n"
+    + "    'status:Sandbox health and NIM status'\n"
+    + "    'logs:Stream sandbox logs'\n"
+    + "    'policy-add:Add a network or filesystem policy preset'\n"
+    + "    'policy-list:List presets'\n"
+    + "    'destroy:Stop NIM and delete sandbox'\n"
+    + "  )\n"
+    + "\n"
+    + "  if (( CURRENT == 2 )); then\n"
+    + "    # Get sandbox names dynamically\n"
+    + '    sandboxes=(${(f)"$(nemoclaw completion --list-sandboxes 2>/dev/null)"})\n'
+    + "    _describe 'command' global_cmds -- sandboxes\n"
+    + "    return\n"
+    + "  fi\n"
+    + "\n"
+    + "  if (( CURRENT == 3 )); then\n"
+    + '    case "${words[2]}" in\n'
+    + "      " + noArgCmds + ")\n"
+    + "        return ;;\n"
+    + "      debug)\n"
+    + "        _arguments"
+    + DEBUG_FLAGS.map((f) => {
+      const desc = { "--quick": "Quick diagnostics", "--sandbox": "Target sandbox", "--output": "Save to file", "--help": "Show help" }[f] || f;
+      const extra = f === "--output" ? ":file:_files" : f === "--sandbox" ? ":name: " : "";
+      return " '" + f + "[" + desc + "]" + extra + "'";
+    }).join("")
+    + "\n"
+    + "        return ;;\n"
+    + "    esac\n"
+    + "    # Assume sandbox name → offer actions\n"
+    + "    _describe 'action' sandbox_actions\n"
+    + "    return\n"
+    + "  fi\n"
+    + "\n"
+    + "  if (( CURRENT == 4 )); then\n"
+    + '    case "${words[3]}" in\n'
+    + "      logs)\n"
+    + "        _arguments '--follow[Follow log output]'\n"
+    + "        return ;;\n"
+    + "      destroy)\n"
+    + "        _arguments '--yes[Skip confirmation]' '--force[Skip confirmation]'\n"
+    + "        return ;;\n"
+    + "    esac\n"
+    + "  fi\n"
+    + "}\n"
+    + "\n"
+    + '_nemoclaw "$@"\n';
 }
 
 function fish() {
+  const debugFlags = DEBUG_FLAGS;
+
   return `# nemoclaw fish completion
 # Add to ~/.config/fish/completions/nemoclaw.fish
 # Or run:  nemoclaw completion fish | source
@@ -188,6 +211,7 @@ complete -c nemoclaw -n "not __fish_use_subcommand; and not __fish_seen_subcomma
 
 # debug flags
 complete -c nemoclaw -n '__fish_seen_subcommand_from debug' -l quick -d 'Quick diagnostics'
+complete -c nemoclaw -n '__fish_seen_subcommand_from debug' -l sandbox -d 'Target sandbox' -r
 complete -c nemoclaw -n '__fish_seen_subcommand_from debug' -l output -d 'Save diagnostics to file' -r
 complete -c nemoclaw -n '__fish_seen_subcommand_from debug' -l help -d 'Show help'
 
@@ -248,4 +272,4 @@ function run(args) {
   }
 }
 
-module.exports = { run };
+module.exports = { run, DEBUG_FLAGS };

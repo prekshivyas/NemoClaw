@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execSync } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 
 const CLI = path.join(import.meta.dirname, "..", "bin", "nemoclaw.js");
@@ -69,5 +70,31 @@ describe("completion command", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("completion");
     expect(r.out).toContain("Shell Completion");
+  });
+
+  it("completion flags match debug.sh", () => {
+    // Parse the flags that debug.sh actually accepts from its case statement,
+    // so completion stays in sync when debug.sh gains new flags.
+    const debugSh = fs.readFileSync(
+      path.join(import.meta.dirname, "..", "scripts", "debug.sh"),
+      "utf-8",
+    );
+    // Match case patterns like "    --sandbox)", "    --output | -o)"
+    const casePatterns = debugSh.match(/^\s+--[^\n]+\)/gm) || [];
+    const debugShFlags = casePatterns
+      .map((m) => m.trim().replace(/\)$/, "").split(/\s*\|\s*/))
+      .flat()
+      .map((f) => f.trim())
+      .filter((f) => f.startsWith("--"));
+
+    // eslint-disable-next-line -- CJS require for the exported constant
+    const { DEBUG_FLAGS } = require("../bin/lib/completion.js");
+
+    for (const flag of debugShFlags) {
+      expect(
+        DEBUG_FLAGS,
+        `debug.sh accepts ${flag} but completion.js DEBUG_FLAGS is missing it`,
+      ).toContain(flag);
+    }
   });
 });

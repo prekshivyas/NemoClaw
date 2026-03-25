@@ -6,7 +6,7 @@ const registry = require("./registry");
 const GLOBAL_COMMANDS = [
   "onboard", "list", "deploy", "setup-spark",
   "start", "stop", "status", "debug", "uninstall",
-  "help", "completion",
+  "help", "completion", "--help", "-h", "--version", "-v",
 ];
 
 const SANDBOX_ACTIONS = [
@@ -28,7 +28,13 @@ function bash() {
 
 _nemoclaw() {
   local cur prev words cword
-  _init_completion || return
+  if type _init_completion &>/dev/null; then
+    _init_completion || return
+  else
+    cur="\${COMP_WORDS[COMP_CWORD]}"
+    prev="\${COMP_WORDS[COMP_CWORD-1]}"
+    cword=$COMP_CWORD
+  fi
 
   local global_cmds="${GLOBAL_COMMANDS.join(" ")}"
   local sandbox_actions="${SANDBOX_ACTIONS.join(" ")}"
@@ -44,9 +50,7 @@ _nemoclaw() {
   if [[ $cword -eq 2 ]]; then
     # If first arg is a sandbox name, complete with actions
     case "$prev" in
-      onboard|list|start|stop|status|help|completion|uninstall)
-        return ;;
-      deploy)
+      onboard|list|deploy|setup-spark|start|stop|status|help|completion|uninstall|--help|-h|--version|-v)
         return ;;
       debug)
         COMPREPLY=($(compgen -W "--quick --output --help" -- "$cur"))
@@ -94,6 +98,10 @@ _nemoclaw() {
     'uninstall:Uninstall NemoClaw'
     'help:Show help'
     'completion:Generate shell completion script'
+    '--help:Show help'
+    '-h:Show help'
+    '--version:Show version'
+    '-v:Show version'
   )
 
   sandbox_actions=(
@@ -114,9 +122,7 @@ _nemoclaw() {
 
   if (( CURRENT == 3 )); then
     case "\${words[2]}" in
-      onboard|list|start|stop|status|help|completion|uninstall)
-        return ;;
-      deploy)
+      onboard|list|deploy|setup-spark|start|stop|status|help|completion|uninstall|--help|-h|--version|-v)
         return ;;
       debug)
         _arguments '--quick[Quick diagnostics]' '--output[Save to file]:file:_files' '--help[Show help]'
@@ -163,6 +169,10 @@ complete -c nemoclaw -n '__fish_use_subcommand' -a 'debug' -d 'Collect diagnosti
 complete -c nemoclaw -n '__fish_use_subcommand' -a 'uninstall' -d 'Uninstall NemoClaw'
 complete -c nemoclaw -n '__fish_use_subcommand' -a 'help' -d 'Show help'
 complete -c nemoclaw -n '__fish_use_subcommand' -a 'completion' -d 'Generate shell completion script'
+complete -c nemoclaw -n '__fish_use_subcommand' -l help -d 'Show help'
+complete -c nemoclaw -n '__fish_use_subcommand' -s h -d 'Show help'
+complete -c nemoclaw -n '__fish_use_subcommand' -l version -d 'Show version'
+complete -c nemoclaw -n '__fish_use_subcommand' -s v -d 'Show version'
 
 # Dynamic sandbox names
 complete -c nemoclaw -n '__fish_use_subcommand' -a '(nemoclaw completion --list-sandboxes 2>/dev/null)'
@@ -201,7 +211,7 @@ function listSandboxNames() {
 }
 
 function run(args) {
-  if (args.includes("--list-sandboxes")) {
+  if (args[0] === "--list-sandboxes") {
     listSandboxNames();
     return;
   }

@@ -88,7 +88,6 @@ describe("completion command", () => {
       .map((f) => f.trim())
       .filter((f) => f.startsWith("--"));
 
-    // eslint-disable-next-line -- CJS require for the exported constant
     const { DEBUG_FLAGS } = require("../bin/lib/completion.js");
 
     for (const flag of debugShFlags) {

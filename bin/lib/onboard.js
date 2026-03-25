@@ -183,11 +183,15 @@ function isSandboxReady(output, sandboxName) {
  * @returns {boolean}
  */
 function hasStaleGateway(gwInfoOutput) {
+  const cleanOutput =
+    typeof gwInfoOutput === "string"
+      ? // eslint-disable-next-line no-control-regex
+        gwInfoOutput.replace(/\x1b\[[0-9;]*m/g, "")
+      : "";
   return (
-    typeof gwInfoOutput === "string" &&
-    gwInfoOutput.length > 0 &&
-    gwInfoOutput.includes(`Gateway: ${GATEWAY_NAME}`) &&
-    !gwInfoOutput.includes("No gateway metadata found")
+    cleanOutput.length > 0 &&
+    cleanOutput.includes(`Gateway: ${GATEWAY_NAME}`) &&
+    !cleanOutput.includes("No gateway metadata found")
   );
 }
 

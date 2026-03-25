@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const SESSION_VERSION = 1;
@@ -60,10 +59,21 @@ function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function redactSensitiveText(value) {
+  if (typeof value !== "string") return null;
+  return value
+    .replace(/(NVIDIA_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY|GEMINI_API_KEY|COMPATIBLE_API_KEY|COMPATIBLE_ANTHROPIC_API_KEY)=\S+/gi, "$1=<REDACTED>")
+    .replace(/Bearer\s+\S+/gi, "Bearer <REDACTED>")
+    .replace(/nvapi-[A-Za-z0-9_-]{10,}/g, "<REDACTED>")
+    .replace(/ghp_[A-Za-z0-9]{20,}/g, "<REDACTED>")
+    .replace(/sk-[A-Za-z0-9_-]{10,}/g, "<REDACTED>")
+    .slice(0, 240);
+}
+
 function sanitizeFailure(input) {
   if (!input) return null;
   const step = typeof input.step === "string" ? input.step : null;
-  const message = typeof input.message === "string" ? input.message.slice(0, 240) : null;
+  const message = redactSensitiveText(input.message);
   const recordedAt = typeof input.recordedAt === "string" ? input.recordedAt : new Date().toISOString();
   return step || message ? { step, message, recordedAt } : null;
 }
@@ -99,7 +109,7 @@ function normalizeSession(data) {
           status: step.status,
           startedAt: typeof step.startedAt === "string" ? step.startedAt : null,
           completedAt: typeof step.completedAt === "string" ? step.completedAt : null,
-          error: typeof step.error === "string" ? step.error.slice(0, 240) : null,
+          error: redactSensitiveText(step.error),
         };
       }
     }
@@ -138,7 +148,9 @@ function clearSession() {
     if (fs.existsSync(SESSION_FILE)) {
       fs.unlinkSync(SESSION_FILE);
     }
-  } catch {}
+  } catch {
+    return;
+  }
 }
 
 function updateSession(mutator) {
@@ -180,7 +192,7 @@ function markStepFailed(stepName, message = null) {
     const step = session.steps[stepName];
     if (!step) return session;
     step.status = "failed";
-    step.error = typeof message === "string" ? message.slice(0, 240) : null;
+    step.error = redactSensitiveText(message);
     session.failure = sanitizeFailure({
       step: stepName,
       message,
@@ -258,6 +270,7 @@ module.exports = {
   markStepStarted,
   saveSession,
   sessionPath,
+  redactSensitiveText,
   summarizeForDebug,
   updateSession,
 };

@@ -26,10 +26,12 @@ describe("onboard session", () => {
     const created = session.createSession({ mode: "non-interactive" });
     const saved = session.saveSession(created);
     const stat = fs.statSync(session.SESSION_FILE);
+    const dirStat = fs.statSync(path.dirname(session.SESSION_FILE));
 
     expect(saved.mode).toBe("non-interactive");
     expect(fs.existsSync(session.SESSION_FILE)).toBe(true);
     expect(stat.mode & 0o777).toBe(0o600);
+    expect(dirStat.mode & 0o777).toBe(0o700);
   });
 
   it("marks steps started, completed, and failed", () => {
@@ -81,6 +83,23 @@ describe("onboard session", () => {
     expect(session.loadSession()).toBeNull();
   });
 
+  it("redacts sensitive values from persisted failure messages", () => {
+    session.saveSession(session.createSession());
+    session.markStepFailed(
+      "inference",
+      "provider auth failed with NVIDIA_API_KEY=nvapi-secret Bearer topsecret sk-secret-value ghp_1234567890123456789012345"
+    );
+
+    const loaded = session.loadSession();
+    expect(loaded.steps.inference.error).toContain("NVIDIA_API_KEY=<REDACTED>");
+    expect(loaded.steps.inference.error).toContain("Bearer <REDACTED>");
+    expect(loaded.steps.inference.error).not.toContain("nvapi-secret");
+    expect(loaded.steps.inference.error).not.toContain("topsecret");
+    expect(loaded.steps.inference.error).not.toContain("sk-secret-value");
+    expect(loaded.steps.inference.error).not.toContain("ghp_1234567890123456789012345");
+    expect(loaded.failure.message).toBe(loaded.steps.inference.error);
+  });
+
   it("summarizes the session for debug output", () => {
     session.saveSession(session.createSession({ sandboxName: "my-assistant" }));
     session.markStepStarted("preflight");
@@ -91,5 +110,14 @@ describe("onboard session", () => {
     expect(summary.steps.preflight.status).toBe("complete");
     expect(summary.steps.preflight.startedAt).toBeTruthy();
     expect(summary.steps.preflight.completedAt).toBeTruthy();
+  });
+
+  it("keeps debug summaries redacted when failures were sanitized", () => {
+    session.saveSession(session.createSession({ sandboxName: "my-assistant" }));
+    session.markStepFailed("provider_selection", "Bearer abcdefghijklmnopqrstuvwxyz");
+    const summary = session.summarizeForDebug();
+
+    expect(summary.failure.message).toContain("Bearer <REDACTED>");
+    expect(summary.failure.message).not.toContain("abcdefghijklmnopqrstuvwxyz");
   });
 });

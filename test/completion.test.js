@@ -35,6 +35,7 @@ describe("completion command", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("#compdef nemoclaw");
     expect(r.out).toContain("_nemoclaw");
+    expect(r.out).toContain("compdef _nemoclaw nemoclaw");
     expect(r.out).toContain("onboard");
   });
 
@@ -46,10 +47,14 @@ describe("completion command", () => {
   });
 
   it("completion with no arg auto-detects shell", () => {
-    const r = run("completion");
-    expect(r.code).toBe(0);
-    // Should output some completion script regardless of shell
-    expect(r.out.length).toBeGreaterThan(100);
+    // Force SHELL so auto-detect works regardless of CI environment
+    const out = execSync(`node "${CLI}" completion`, {
+      encoding: "utf-8",
+      timeout: 10000,
+      env: { ...process.env, HOME: "/tmp/nemoclaw-completion-test-" + Date.now(), SHELL: "/bin/bash" },
+    });
+    expect(out.length).toBeGreaterThan(100);
+    expect(out).toContain("_nemoclaw");
   });
 
   it("completion with unknown shell exits 1", () => {

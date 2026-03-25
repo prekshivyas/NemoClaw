@@ -30,7 +30,7 @@ function bash() {
   const globalCmds = GLOBAL_COMMANDS.join(" ");
   const sandboxActions = SANDBOX_ACTIONS.join(" ");
   const debugFlags = DEBUG_FLAGS.join(" ");
-  const noArgCmds = GLOBAL_COMMANDS.filter((c) => c !== "debug").join("|");
+  const noArgCmds = GLOBAL_COMMANDS.filter((c) => !["debug", "completion"].includes(c)).join("|");
 
   return `# nemoclaw bash completion
 # Add to ~/.bashrc:  eval "$(nemoclaw completion bash)"
@@ -60,6 +60,9 @@ _nemoclaw() {
   if [[ $cword -eq 2 ]]; then
     # If first arg is a sandbox name, complete with actions
     case "$prev" in
+      completion)
+        COMPREPLY=($(compgen -W "bash zsh fish" -- "$cur"))
+        return ;;
       ${noArgCmds})
         return ;;
       debug)
@@ -94,7 +97,7 @@ complete -F _nemoclaw nemoclaw
 // previously caused escaping bugs caught only by the linter.
 
 function zsh() {
-  const noArgCmds = GLOBAL_COMMANDS.filter((c) => c !== "debug").join("|");
+  const noArgCmds = GLOBAL_COMMANDS.filter((c) => !["debug", "completion"].includes(c)).join("|");
 
   return "#compdef nemoclaw\n"
     + "# nemoclaw zsh completion\n"
@@ -139,6 +142,9 @@ function zsh() {
     + "\n"
     + "  if (( CURRENT == 3 )); then\n"
     + '    case "${words[2]}" in\n'
+    + "      completion)\n"
+    + "        _values 'shell' bash zsh fish\n"
+    + "        return ;;\n"
     + "      " + noArgCmds + ")\n"
     + "        return ;;\n"
     + "      debug)\n"
@@ -168,7 +174,7 @@ function zsh() {
     + "  fi\n"
     + "}\n"
     + "\n"
-    + '_nemoclaw "$@"\n';
+    + "compdef _nemoclaw nemoclaw\n";
 }
 
 function fish() {
@@ -248,8 +254,12 @@ function run(args) {
       process.stdout.write(zsh());
     } else if (envShell.includes("fish")) {
       process.stdout.write(fish());
-    } else {
+    } else if (envShell.includes("bash")) {
       process.stdout.write(bash());
+    } else {
+      console.error(`  Unknown shell: ${envShell || "<unset>"}`);
+      console.error("  Supported: bash, zsh, fish");
+      process.exit(1);
     }
     return;
   }

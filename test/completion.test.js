@@ -80,7 +80,8 @@ describe("completion command", () => {
       "utf-8",
     );
     // Match case patterns like "    --sandbox)", "    --output | -o)"
-    const casePatterns = debugSh.match(/^\s+--[^\n]+\)/gm) || [];
+    // Only match lines where ) follows flags (with optional | short alias)
+    const casePatterns = debugSh.match(/^\s+--[\w-]+(?:\s*\|\s*-\w+)?\)/gm) || [];
     const debugShFlags = casePatterns
       .map((m) => m.trim().replace(/\)$/, "").split(/\s*\|\s*/))
       .flat()

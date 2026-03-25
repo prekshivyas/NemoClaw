@@ -22,6 +22,21 @@
 
 set -uo pipefail
 
+if [ "${NEMOCLAW_E2E_NO_TIMEOUT:-0}" != "1" ]; then
+  TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-600}"
+  TIMEOUT_BIN=""
+  if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="timeout"
+  elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="gtimeout"
+  fi
+
+  if [ -n "$TIMEOUT_BIN" ]; then
+    export NEMOCLAW_E2E_NO_TIMEOUT=1
+    exec "$TIMEOUT_BIN" -s TERM "$TIMEOUT_SECONDS" "$0" "$@"
+  fi
+fi
+
 PASS=0
 FAIL=0
 SKIP=0

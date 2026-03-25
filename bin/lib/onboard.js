@@ -183,20 +183,24 @@ function isSandboxReady(output, sandboxName) {
  * @returns {boolean}
  */
 function hasStaleGateway(gwInfoOutput) {
-  return typeof gwInfoOutput === "string" && gwInfoOutput.length > 0 && gwInfoOutput.includes(GATEWAY_NAME);
+  return (
+    typeof gwInfoOutput === "string" &&
+    gwInfoOutput.length > 0 &&
+    gwInfoOutput.includes(`Gateway: ${GATEWAY_NAME}`) &&
+    !gwInfoOutput.includes("No gateway metadata found")
+  );
 }
 
-function isGatewayHealthy(statusOutput = "", gwInfoOutput = "", activeGatewayInfoOutput = "") {
+function isSelectedGateway(statusOutput = "", gatewayName = GATEWAY_NAME) {
+  return typeof statusOutput === "string" && statusOutput.includes(`Gateway: ${gatewayName}`);
+}
+
+function isGatewayHealthy(statusOutput = "", gwInfoOutput = "", _activeGatewayInfoOutput = "") {
   const connected = typeof statusOutput === "string" && statusOutput.includes("Connected");
   if (!connected) return false;
 
   const namedGatewayKnown = hasStaleGateway(gwInfoOutput);
-  const activeGatewayKnown =
-    typeof activeGatewayInfoOutput === "string" &&
-    activeGatewayInfoOutput.includes("Gateway endpoint:") &&
-    !activeGatewayInfoOutput.includes("No gateway metadata found");
-
-  return namedGatewayKnown || activeGatewayKnown;
+  return namedGatewayKnown || isSelectedGateway(statusOutput);
 }
 
 function getGatewayReuseState(statusOutput = "", gwInfoOutput = "", activeGatewayInfoOutput = "") {
@@ -1223,6 +1227,24 @@ function getRequestedModelHint(nonInteractive = isNonInteractive()) {
   return getNonInteractiveModel(providerKey);
 }
 
+function getEffectiveProviderName(providerKey) {
+  if (!providerKey) return null;
+  if (REMOTE_PROVIDER_CONFIG[providerKey]) {
+    return REMOTE_PROVIDER_CONFIG[providerKey].providerName;
+  }
+
+  switch (providerKey) {
+    case "nim-local":
+      return "nvidia-nim";
+    case "ollama":
+      return "ollama-local";
+    case "vllm":
+      return "vllm-local";
+    default:
+      return providerKey;
+  }
+}
+
 function getResumeConfigConflicts(session, opts = {}) {
   const conflicts = [];
   const nonInteractive = opts.nonInteractive ?? isNonInteractive();
@@ -1237,10 +1259,11 @@ function getResumeConfigConflicts(session, opts = {}) {
   }
 
   const requestedProvider = getRequestedProviderHint(nonInteractive);
-  if (requestedProvider && session?.provider && requestedProvider !== session.provider) {
+  const effectiveRequestedProvider = getEffectiveProviderName(requestedProvider);
+  if (effectiveRequestedProvider && session?.provider && effectiveRequestedProvider !== session.provider) {
     conflicts.push({
       field: "provider",
-      requested: requestedProvider,
+      requested: effectiveRequestedProvider,
       recorded: session.provider,
     });
   }
@@ -1562,7 +1585,7 @@ function getGatewayStartEnv() {
 async function recoverGatewayRuntime() {
   runOpenshell(["gateway", "select", GATEWAY_NAME], { ignoreError: true });
   let status = runCaptureOpenshell(["status"], { ignoreError: true });
-  if (status.includes("Connected")) {
+  if (status.includes("Connected") && isSelectedGateway(status)) {
     process.env.OPENSHELL_GATEWAY = GATEWAY_NAME;
     return true;
   }
@@ -1575,7 +1598,7 @@ async function recoverGatewayRuntime() {
 
   for (let i = 0; i < 5; i++) {
     status = runCaptureOpenshell(["status"], { ignoreError: true });
-    if (status.includes("Connected")) {
+    if (status.includes("Connected") && isSelectedGateway(status)) {
       process.env.OPENSHELL_GATEWAY = GATEWAY_NAME;
       const runtime = getContainerRuntime();
       if (shouldPatchCoredns(runtime)) {
@@ -1591,9 +1614,7 @@ async function recoverGatewayRuntime() {
 
 // ── Step 3: Sandbox ──────────────────────────────────────────────
 
-async function createSandbox(gpu, model, provider, preferredInferenceApi = null) {
-  step(5, 7, "Creating sandbox");
-
+async function promptValidatedSandboxName() {
   const nameAnswer = await promptOrDefault(
     "  Sandbox name (lowercase, numbers, hyphens) [my-assistant]: ",
     "NEMOCLAW_SANDBOX_NAME", "my-assistant"
@@ -1608,6 +1629,14 @@ async function createSandbox(gpu, model, provider, preferredInferenceApi = null)
     console.error("  and must start and end with a letter or number.");
     process.exit(1);
   }
+
+  return sandboxName;
+}
+
+async function createSandbox(gpu, model, provider, preferredInferenceApi = null, sandboxNameOverride = null) {
+  step(5, 7, "Creating sandbox");
+
+  const sandboxName = sandboxNameOverride || (await promptValidatedSandboxName());
 
   // Reconcile local registry state with the live OpenShell gateway state.
   const liveExists = pruneStaleSandboxEntry(sandboxName);
@@ -2501,9 +2530,9 @@ async function onboard(opts = {}) {
     onboardSession.markStepComplete("preflight");
   }
 
-  const gatewayStatus = runCapture("openshell status 2>&1", { ignoreError: true });
-  const gatewayInfo = runCapture("openshell gateway info -g nemoclaw 2>/dev/null", { ignoreError: true });
-  const activeGatewayInfo = runCapture("openshell gateway info 2>&1", { ignoreError: true });
+  const gatewayStatus = runCaptureOpenshell(["status"], { ignoreError: true });
+  const gatewayInfo = runCaptureOpenshell(["gateway", "info", "-g", GATEWAY_NAME], { ignoreError: true });
+  const activeGatewayInfo = runCaptureOpenshell(["gateway", "info"], { ignoreError: true });
   const gatewayReuseState = getGatewayReuseState(gatewayStatus, gatewayInfo, activeGatewayInfo);
   const resumeGateway =
     resume &&
@@ -2585,8 +2614,9 @@ async function onboard(opts = {}) {
         }
       }
     }
-    startRecordedStep("sandbox", { provider, model });
-    sandboxName = await createSandbox(gpu, model, provider, preferredInferenceApi);
+    sandboxName = sandboxName || (await promptValidatedSandboxName());
+    startRecordedStep("sandbox", { sandboxName, provider, model });
+    sandboxName = await createSandbox(gpu, model, provider, preferredInferenceApi, sandboxName);
     onboardSession.markStepComplete("sandbox", { sandboxName, provider, model, nimContainer });
   }
 

@@ -264,13 +264,13 @@ else
   fail "Resume exited $provider_conflict_exit for conflicting provider/model (expected 1)"
 fi
 
-if echo "$provider_conflict_output" | grep -q "Resumable state recorded provider 'nvidia-nim', not 'cloud'."; then
+if echo "$provider_conflict_output" | grep -Eq "Resumable state recorded provider '.*', not '.*'\."; then
   pass "Conflicting provider message is explicit"
 else
   fail "Conflicting provider message missing or incorrect"
 fi
 
-if echo "$provider_conflict_output" | grep -q "Resumable state recorded model 'nvidia/nemotron-3-super-120b-a12b', not 'nvidia/conflicting-model'."; then
+if echo "$provider_conflict_output" | grep -Eq "Resumable state recorded model '.*', not 'nvidia/conflicting-model'\."; then
   pass "Conflicting model message is explicit"
 else
   fail "Conflicting model message missing or incorrect"

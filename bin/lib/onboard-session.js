@@ -45,6 +45,10 @@ function createSession(overrides = {}) {
     sandboxName: overrides.sandboxName || null,
     provider: overrides.provider || null,
     model: overrides.model || null,
+    endpointUrl: overrides.endpointUrl || null,
+    credentialEnv: overrides.credentialEnv || null,
+    preferredInferenceApi: overrides.preferredInferenceApi || null,
+    nimContainer: overrides.nimContainer || null,
     metadata: {
       gatewayName: overrides.metadata?.gatewayName || "nemoclaw",
     },
@@ -94,6 +98,10 @@ function normalizeSession(data) {
     sandboxName: typeof data.sandboxName === "string" ? data.sandboxName : null,
     provider: typeof data.provider === "string" ? data.provider : null,
     model: typeof data.model === "string" ? data.model : null,
+    endpointUrl: typeof data.endpointUrl === "string" ? data.endpointUrl : null,
+    credentialEnv: typeof data.credentialEnv === "string" ? data.credentialEnv : null,
+    preferredInferenceApi: typeof data.preferredInferenceApi === "string" ? data.preferredInferenceApi : null,
+    nimContainer: typeof data.nimContainer === "string" ? data.nimContainer : null,
     lastStepStarted: typeof data.lastStepStarted === "string" ? data.lastStepStarted : null,
     lastCompletedStep: typeof data.lastCompletedStep === "string" ? data.lastCompletedStep : null,
     failure: sanitizeFailure(data.failure),
@@ -218,6 +226,10 @@ function filterSafeUpdates(updates) {
   if (typeof updates.sandboxName === "string") safe.sandboxName = updates.sandboxName;
   if (typeof updates.provider === "string") safe.provider = updates.provider;
   if (typeof updates.model === "string") safe.model = updates.model;
+  if (typeof updates.endpointUrl === "string") safe.endpointUrl = updates.endpointUrl;
+  if (typeof updates.credentialEnv === "string") safe.credentialEnv = updates.credentialEnv;
+  if (typeof updates.preferredInferenceApi === "string") safe.preferredInferenceApi = updates.preferredInferenceApi;
+  if (typeof updates.nimContainer === "string") safe.nimContainer = updates.nimContainer;
   if (isObject(updates.metadata)) {
     safe.metadata = {};
     if (typeof updates.metadata.gatewayName === "string") {
@@ -240,6 +252,10 @@ function summarizeForDebug(session = loadSession()) {
     sandboxName: session.sandboxName,
     provider: session.provider,
     model: session.model,
+    endpointUrl: session.endpointUrl,
+    credentialEnv: session.credentialEnv,
+    preferredInferenceApi: session.preferredInferenceApi,
+    nimContainer: session.nimContainer,
     lastStepStarted: session.lastStepStarted,
     lastCompletedStep: session.lastCompletedStep,
     failure: session.failure,

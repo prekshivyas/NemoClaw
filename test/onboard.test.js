@@ -210,7 +210,7 @@ describe("onboard helpers", () => {
         "Error:   × No gateway metadata found for 'nemoclaw'.",
         "Gateway Info\n\n  Gateway: openshell\n  Gateway endpoint: https://127.0.0.1:8080"
       )
-    ).toBe(true);
+    ).toBe(false);
     expect(isGatewayHealthy("Gateway status: Disconnected", "Gateway: nemoclaw")).toBe(false);
     expect(isGatewayHealthy("Gateway status: Connected", "Gateway: something-else")).toBe(false);
   });
@@ -228,7 +228,7 @@ describe("onboard helpers", () => {
         "Error:   × No gateway metadata found for 'nemoclaw'.",
         "Gateway Info\n\n  Gateway: openshell\n  Gateway endpoint: https://127.0.0.1:8080"
       )
-    ).toBe("healthy");
+    ).toBe("active-unnamed");
     expect(
       getGatewayReuseState(
         "Gateway status: Disconnected",
@@ -241,7 +241,7 @@ describe("onboard helpers", () => {
         "",
         "Gateway Info\n\n  Gateway: openshell\n  Gateway endpoint: https://127.0.0.1:8080"
       )
-    ).toBe("healthy");
+    ).toBe("active-unnamed");
     expect(getGatewayReuseState("", "")).toBe("missing");
   });
 
@@ -364,7 +364,7 @@ describe("onboard helpers", () => {
       ).toEqual([
         {
           field: "provider",
-          requested: "build",
+          requested: "nvidia-prod",
           recorded: "nvidia-nim",
         },
         {

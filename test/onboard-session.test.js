@@ -53,13 +53,16 @@ describe("onboard session", () => {
     expect(loaded.failure.message).toMatch(/Sandbox creation failed/);
   });
 
-  it("filters unsafe updates instead of persisting secrets", () => {
+  it("persists safe provider metadata without persisting secrets", () => {
     session.saveSession(session.createSession());
     session.markStepComplete("provider_selection", {
       provider: "nvidia-nim",
       model: "nvidia/test-model",
       sandboxName: "my-assistant",
+      endpointUrl: "https://example.com/v1",
       credentialEnv: "NVIDIA_API_KEY",
+      preferredInferenceApi: "openai-completions",
+      nimContainer: "nim-123",
       apiKey: "nvapi-secret",
       metadata: {
         gatewayName: "nemoclaw",
@@ -71,7 +74,10 @@ describe("onboard session", () => {
     expect(loaded.provider).toBe("nvidia-nim");
     expect(loaded.model).toBe("nvidia/test-model");
     expect(loaded.sandboxName).toBe("my-assistant");
-    expect(loaded.credentialEnv).toBeUndefined();
+    expect(loaded.endpointUrl).toBe("https://example.com/v1");
+    expect(loaded.credentialEnv).toBe("NVIDIA_API_KEY");
+    expect(loaded.preferredInferenceApi).toBe("openai-completions");
+    expect(loaded.nimContainer).toBe("nim-123");
     expect(loaded.apiKey).toBeUndefined();
     expect(loaded.metadata.gatewayName).toBe("nemoclaw");
     expect(loaded.metadata.token).toBeUndefined();

@@ -246,7 +246,7 @@ ensure_nvm_loaded() {
 
 detect_shell_profile() {
   local profile="$HOME/.bashrc"
-  if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$(basename "${SHELL:-}")" == "zsh" ]]; then
+  if [[ "$(basename "${SHELL:-}")" == "zsh" ]]; then
     profile="$HOME/.zshrc"
   elif [[ ! -f "$HOME/.bashrc" && -f "$HOME/.profile" ]]; then
     profile="$HOME/.profile"

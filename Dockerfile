@@ -37,7 +37,9 @@ COPY nemoclaw-blueprint/ /opt/nemoclaw-blueprint/
 WORKDIR /opt/nemoclaw
 RUN npm ci --omit=dev
 
-# Set up blueprint for local resolution
+# Set up blueprint for local resolution.
+# Blueprints are immutable at runtime; DAC protection (root ownership) is applied
+# later since /sandbox/.nemoclaw is Landlock read_write for plugin state (#804).
 RUN mkdir -p /sandbox/.nemoclaw/blueprints/0.1.0 \
     && cp -r /opt/nemoclaw-blueprint/* /sandbox/.nemoclaw/blueprints/0.1.0/
 
@@ -145,6 +147,16 @@ RUN chown root:root /sandbox/.openclaw \
 RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash \
     && chmod 444 /sandbox/.openclaw/.config-hash \
     && chown root:root /sandbox/.openclaw/.config-hash
+
+# DAC-protect blueprints: /sandbox/.nemoclaw is Landlock read_write (for plugin
+# state/config), but blueprints are immutable at runtime. Root ownership prevents
+# the agent from modifying them even though the directory is writable. The state/
+# subdirectory stays sandbox-owned for runtime writes.
+# Ref: https://github.com/NVIDIA/NemoClaw/issues/804
+RUN chown -R root:root /sandbox/.nemoclaw/blueprints \
+    && chmod -R 755 /sandbox/.nemoclaw/blueprints \
+    && mkdir -p /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration \
+    && chown sandbox:sandbox /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration
 
 # Entrypoint runs as root to start the gateway as the gateway user,
 # then drops to sandbox for agent commands. See nemoclaw-start.sh.

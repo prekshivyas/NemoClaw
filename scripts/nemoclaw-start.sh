@@ -29,6 +29,18 @@ fi
 # into commands executed by the entrypoint or auto-pair watcher.
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
+# Redirect tool caches and state to /tmp so they don't fail on the read-only
+# /sandbox home directory (#804). Without these, tools would try to create
+# dotfiles (~/.npm, ~/.cache, ~/.bash_history, ~/.gitconfig, ~/.local, ~/.claude)
+# in the Landlock read-only home and fail.
+export npm_config_cache="/tmp/.npm-cache"
+export XDG_CACHE_HOME="/tmp/.cache"
+export NODE_REPL_HISTORY="/tmp/.node_repl_history"
+export HISTFILE="/tmp/.bash_history"
+export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
+export PYTHONUSERBASE="/tmp/.local"
+export CLAUDE_CONFIG_DIR="/tmp/.claude"
+
 # ── Drop unnecessary Linux capabilities ──────────────────────────
 # CIS Docker Benchmark 5.3: containers should not run with default caps.
 # OpenShell manages the container runtime so we cannot pass --cap-drop=ALL
@@ -231,60 +243,40 @@ export no_proxy="$_NO_PROXY_VAL"
 # OpenShell re-injects narrow NO_PROXY/no_proxy=127.0.0.1,localhost,::1 every
 # time a user connects via `openshell sandbox connect`.  The connect path spawns
 # `/bin/bash -i` (interactive, non-login), which sources ~/.bashrc — NOT
-# ~/.profile or /etc/profile.d/*.  Write the full proxy config to ~/.bashrc so
-# interactive sessions see the correct values.
+# ~/.profile or /etc/profile.d/*.
+#
+# The /sandbox home directory is Landlock read-only (#804), so we write the proxy
+# config to /sandbox/.openclaw-data/proxy-env.sh (writable). The pre-built
+# .bashrc and .profile source this file automatically.
 #
 # Both uppercase and lowercase variants are required: Node.js undici prefers
 # lowercase (no_proxy) over uppercase (NO_PROXY) when both are set.
 # curl/wget use uppercase.  gRPC C-core uses lowercase.
-#
-# Also write to ~/.profile for login-shell paths (e.g. `sandbox create -- cmd`
-# which spawns `bash -lc`).
-#
-# Idempotency: begin/end markers delimit the block so it can be replaced
-# on restart if NEMOCLAW_PROXY_HOST/PORT change, without duplicating.
-_PROXY_MARKER_BEGIN="# nemoclaw-proxy-config begin"
-_PROXY_MARKER_END="# nemoclaw-proxy-config end"
-_PROXY_SNIPPET="${_PROXY_MARKER_BEGIN}
-export HTTP_PROXY=\"$_PROXY_URL\"
-export HTTPS_PROXY=\"$_PROXY_URL\"
-export NO_PROXY=\"$_NO_PROXY_VAL\"
-export http_proxy=\"$_PROXY_URL\"
-export https_proxy=\"$_PROXY_URL\"
-export no_proxy=\"$_NO_PROXY_VAL\"
-${_PROXY_MARKER_END}"
-
-if [ "$(id -u)" -eq 0 ]; then
-  _SANDBOX_HOME=$(getent passwd sandbox 2>/dev/null | cut -d: -f6)
-  _SANDBOX_HOME="${_SANDBOX_HOME:-/sandbox}"
-else
-  _SANDBOX_HOME="${HOME:-/sandbox}"
-fi
-
-_write_proxy_snippet() {
-  local target="$1"
-  if [ -f "$target" ] && grep -qF "$_PROXY_MARKER_BEGIN" "$target" 2>/dev/null; then
-    local tmp
-    tmp="$(mktemp)"
-    awk -v b="$_PROXY_MARKER_BEGIN" -v e="$_PROXY_MARKER_END" \
-      '$0==b{s=1;next} $0==e{s=0;next} !s' "$target" >"$tmp"
-    printf '%s\n' "$_PROXY_SNIPPET" >>"$tmp"
-    cat "$tmp" >"$target"
-    rm -f "$tmp"
-    return 0
-  fi
-  printf '\n%s\n' "$_PROXY_SNIPPET" >>"$target"
-}
-
-if [ -w "$_SANDBOX_HOME" ]; then
-  _write_proxy_snippet "${_SANDBOX_HOME}/.bashrc"
-  _write_proxy_snippet "${_SANDBOX_HOME}/.profile"
-fi
+_PROXY_ENV_FILE="/sandbox/.openclaw-data/proxy-env.sh"
+cat > "$_PROXY_ENV_FILE" <<PROXYEOF
+# Proxy configuration (overrides narrow OpenShell defaults on connect)
+export HTTP_PROXY="$_PROXY_URL"
+export HTTPS_PROXY="$_PROXY_URL"
+export NO_PROXY="$_NO_PROXY_VAL"
+export http_proxy="$_PROXY_URL"
+export https_proxy="$_PROXY_URL"
+export no_proxy="$_NO_PROXY_VAL"
+# Tool cache redirects — /sandbox is Landlock read-only (#804)
+export npm_config_cache="/tmp/.npm-cache"
+export XDG_CACHE_HOME="/tmp/.cache"
+export NODE_REPL_HISTORY="/tmp/.node_repl_history"
+export HISTFILE="/tmp/.bash_history"
+export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
+export PYTHONUSERBASE="/tmp/.local"
+export CLAUDE_CONFIG_DIR="/tmp/.claude"
+PROXYEOF
+chmod 644 "$_PROXY_ENV_FILE"
 
 # ── Main ─────────────────────────────────────────────────────────
 
 echo 'Setting up NemoClaw...'
-[ -f .env ] && chmod 600 .env
+# Best-effort: .env may not exist, and /sandbox is Landlock read-only (#804).
+[ -f .env ] && chmod 600 .env 2>/dev/null || true
 
 # ── Non-root fallback ──────────────────────────────────────────
 # OpenShell runs containers with --security-opt=no-new-privileges, which

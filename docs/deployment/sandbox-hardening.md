@@ -80,8 +80,33 @@ services:
 > capability dropping in your `docker run` flags, Compose file, or Kubernetes
 > `securityContext`.
 
+## Read-Only Home Directory
+
+The sandbox Landlock policy restricts `/sandbox` (the agent's home directory) to
+read-only access. Only explicitly declared directories are writable:
+
+| Path | Access | Purpose |
+|------|--------|---------|
+| `/sandbox` | read-only | Home directory — agents cannot create arbitrary files |
+| `/sandbox/.openclaw` | read-only | Immutable gateway config (auth tokens, CORS) |
+| `/sandbox/.openclaw-data` | read-write | Agent state, workspace, plugins (via symlinks) |
+| `/sandbox/.nemoclaw` | read-write | Plugin state and config; blueprints within are DAC-protected (root-owned) |
+| `/tmp` | read-write | Temporary files and logs |
+
+This prevents agents from:
+
+- Writing scripts and executing them later
+- Modifying their own runtime environment
+- Creating hidden files that persist across invocations
+- Using writable space for data staging before exfiltration
+
+Shell init files (`.bashrc`, `.profile`) are pre-created at image build time and
+source runtime proxy configuration from the writable
+`/sandbox/.openclaw-data/proxy-env.sh`.
+
 ## References
 
+- [#804](https://github.com/NVIDIA/NemoClaw/issues/804) — Read-only home directory
 - [#807](https://github.com/NVIDIA/NemoClaw/issues/807) — gcc in sandbox image
 - [#808](https://github.com/NVIDIA/NemoClaw/issues/808) — netcat in sandbox image
 - [#809](https://github.com/NVIDIA/NemoClaw/issues/809) — No process limit

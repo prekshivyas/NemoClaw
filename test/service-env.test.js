@@ -200,7 +200,7 @@ describe("service environment", () => {
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           // Override the hardcoded path to use our temp dir
-          persistBlock.trimEnd().replace(
+          persistBlock.trimEnd().replaceAll(
             '/sandbox/.openclaw-data/proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),
@@ -239,7 +239,7 @@ describe("service environment", () => {
           "#!/usr/bin/env bash",
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
-          persistBlock.trimEnd().replace(
+          persistBlock.trimEnd().replaceAll(
             '/sandbox/.openclaw-data/proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),
@@ -276,7 +276,7 @@ describe("service environment", () => {
           "#!/usr/bin/env bash",
           `PROXY_HOST="${host}"`,
           'PROXY_PORT="3128"',
-          persistBlock.trimEnd().replace(
+          persistBlock.trimEnd().replaceAll(
             '/sandbox/.openclaw-data/proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),

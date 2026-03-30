@@ -148,15 +148,20 @@ RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash
     && chmod 444 /sandbox/.openclaw/.config-hash \
     && chown root:root /sandbox/.openclaw/.config-hash
 
-# DAC-protect blueprints: /sandbox/.nemoclaw is Landlock read_write (for plugin
-# state/config), but blueprints are immutable at runtime. Root ownership prevents
-# the agent from modifying them even though the directory is writable. The state/
-# subdirectory stays sandbox-owned for runtime writes.
+# DAC-protect .nemoclaw directory: /sandbox/.nemoclaw is Landlock read_write
+# (for plugin state/config), but the parent and blueprints are immutable at
+# runtime. Root ownership on the parent prevents the agent from renaming or
+# replacing the root-owned blueprints directory. Only state/, migration/,
+# snapshots/, and config.json are sandbox-owned for runtime writes.
 # Ref: https://github.com/NVIDIA/NemoClaw/issues/804
-RUN chown -R root:root /sandbox/.nemoclaw/blueprints \
+RUN chown root:root /sandbox/.nemoclaw \
+    && chmod 755 /sandbox/.nemoclaw \
+    && chown -R root:root /sandbox/.nemoclaw/blueprints \
     && chmod -R 755 /sandbox/.nemoclaw/blueprints \
-    && mkdir -p /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration \
-    && chown sandbox:sandbox /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration
+    && mkdir -p /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration /sandbox/.nemoclaw/snapshots \
+    && chown sandbox:sandbox /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration /sandbox/.nemoclaw/snapshots \
+    && touch /sandbox/.nemoclaw/config.json \
+    && chown sandbox:sandbox /sandbox/.nemoclaw/config.json
 
 # Entrypoint runs as root to start the gateway as the gateway user,
 # then drops to sandbox for agent commands. See nemoclaw-start.sh.

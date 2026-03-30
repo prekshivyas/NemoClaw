@@ -195,13 +195,19 @@ describe("service environment", () => {
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
           { encoding: "utf-8" }
         );
+        if (!persistBlock.trim()) {
+          throw new Error(
+            "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
+            "the _PROXY_URL..chmod block may have been moved or renamed"
+          );
+        }
         const wrapper = [
           "#!/usr/bin/env bash",
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           // Override the hardcoded path to use our temp dir
           persistBlock.trimEnd().replaceAll(
-            '/sandbox/.openclaw-data/proxy-env.sh',
+            '/tmp/nemoclaw-proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),
         ].join("\n");
@@ -235,12 +241,18 @@ describe("service environment", () => {
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
           { encoding: "utf-8" }
         );
+        if (!persistBlock.trim()) {
+          throw new Error(
+            "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
+            "the _PROXY_URL..chmod block may have been moved or renamed"
+          );
+        }
         const wrapper = [
           "#!/usr/bin/env bash",
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           persistBlock.trimEnd().replaceAll(
-            '/sandbox/.openclaw-data/proxy-env.sh',
+            '/tmp/nemoclaw-proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),
         ].join("\n");
@@ -272,12 +284,18 @@ describe("service environment", () => {
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
           { encoding: "utf-8" }
         );
+        if (!persistBlock.trim()) {
+          throw new Error(
+            "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
+            "the _PROXY_URL..chmod block may have been moved or renamed"
+          );
+        }
         const makeWrapper = (host) => [
           "#!/usr/bin/env bash",
           `PROXY_HOST="${host}"`,
           'PROXY_PORT="3128"',
           persistBlock.trimEnd().replaceAll(
-            '/sandbox/.openclaw-data/proxy-env.sh',
+            '/tmp/nemoclaw-proxy-env.sh',
             `${fakeDataDir}/proxy-env.sh`
           ),
         ].join("\n");

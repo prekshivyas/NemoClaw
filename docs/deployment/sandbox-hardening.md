@@ -82,8 +82,8 @@ services:
 
 ## Read-Only Home Directory
 
-The sandbox Landlock policy restricts `/sandbox` (the agent's home directory) to
-read-only access. Only explicitly declared directories are writable:
+The sandbox Landlock policy restricts `/sandbox` (the agent's home directory) to read-only access.
+Only explicitly declared directories are writable:
 
 | Path | Access | Purpose |
 |------|--------|---------|
@@ -100,9 +100,8 @@ This prevents agents from:
 - Creating hidden files that persist across invocations
 - Using writable space for data staging before exfiltration
 
-Shell init files (`.bashrc`, `.profile`) are pre-created at image build time and
-source runtime proxy configuration from the writable
-`/sandbox/.openclaw-data/proxy-env.sh`.
+The image build pre-creates shell init files `.bashrc` and `.profile`.
+These files source runtime proxy configuration from `/tmp/nemoclaw-proxy-env.sh`.
 
 ## References
 

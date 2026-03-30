@@ -246,13 +246,20 @@ export no_proxy="$_NO_PROXY_VAL"
 # ~/.profile or /etc/profile.d/*.
 #
 # The /sandbox home directory is Landlock read-only (#804), so we write the proxy
-# config to /sandbox/.openclaw-data/proxy-env.sh (writable). The pre-built
-# .bashrc and .profile source this file automatically.
+# config to /tmp/nemoclaw-proxy-env.sh. The pre-built .bashrc and .profile
+# source this file automatically.
+#
+# SECURITY: /tmp has the sticky bit, so when running as root the sandbox user
+# cannot delete or replace this root-owned file. In non-root mode privilege
+# separation is already disabled, so this is an accepted limitation.
 #
 # Both uppercase and lowercase variants are required: Node.js undici prefers
 # lowercase (no_proxy) over uppercase (NO_PROXY) when both are set.
 # curl/wget use uppercase.  gRPC C-core uses lowercase.
-_PROXY_ENV_FILE="/sandbox/.openclaw-data/proxy-env.sh"
+_PROXY_ENV_FILE="/tmp/nemoclaw-proxy-env.sh"
+# Remove any pre-existing file/symlink to prevent symlink-following attacks,
+# then write a fresh file.
+rm -f "$_PROXY_ENV_FILE" 2>/dev/null || true
 cat > "$_PROXY_ENV_FILE" <<PROXYEOF
 # Proxy configuration (overrides narrow OpenShell defaults on connect)
 export HTTP_PROXY="$_PROXY_URL"

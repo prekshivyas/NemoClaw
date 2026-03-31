@@ -15,52 +15,66 @@ describe("service environment", () => {
     });
 
     it("rejects non-absolute command -v result (alias)", () => {
-      expect(
-        resolveOpenshell({ commandVResult: "openshell", checkExecutable: () => false })
-      ).toBe(null);
+      expect(resolveOpenshell({ commandVResult: "openshell", checkExecutable: () => false })).toBe(
+        null,
+      );
     });
 
     it("rejects alias definition from command -v", () => {
       expect(
-        resolveOpenshell({ commandVResult: "alias openshell='echo pwned'", checkExecutable: () => false })
+        resolveOpenshell({
+          commandVResult: "alias openshell='echo pwned'",
+          checkExecutable: () => false,
+        }),
       ).toBe(null);
     });
 
     it("falls back to ~/.local/bin when command -v fails", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/fakehome/.local/bin/openshell",
-        home: "/fakehome",
-      })).toBe("/fakehome/.local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/fakehome/.local/bin/openshell",
+          home: "/fakehome",
+        }),
+      ).toBe("/fakehome/.local/bin/openshell");
     });
 
     it("falls back to /usr/local/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/usr/local/bin/openshell",
-      })).toBe("/usr/local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/usr/local/bin/openshell",
+        }),
+      ).toBe("/usr/local/bin/openshell");
     });
 
     it("falls back to /usr/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/usr/bin/openshell",
-      })).toBe("/usr/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) => p === "/usr/bin/openshell",
+        }),
+      ).toBe("/usr/bin/openshell");
     });
 
     it("prefers ~/.local/bin over /usr/local/bin", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: (p) => p === "/fakehome/.local/bin/openshell" || p === "/usr/local/bin/openshell",
-        home: "/fakehome",
-      })).toBe("/fakehome/.local/bin/openshell");
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: (p) =>
+            p === "/fakehome/.local/bin/openshell" || p === "/usr/local/bin/openshell",
+          home: "/fakehome",
+        }),
+      ).toBe("/fakehome/.local/bin/openshell");
     });
 
     it("returns null when openshell not found anywhere", () => {
-      expect(resolveOpenshell({
-        commandVResult: null,
-        checkExecutable: () => false,
-      })).toBe(null);
+      expect(
+        resolveOpenshell({
+          commandVResult: null,
+          checkExecutable: () => false,
+        }),
+      ).toBe(null);
     });
   });
 
@@ -71,7 +85,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "", SANDBOX_NAME: "my-box" },
-        }
+        },
       ).trim();
       expect(result).toBe("my-box");
     });
@@ -82,7 +96,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "from-env", SANDBOX_NAME: "old" },
-        }
+        },
       ).trim();
       expect(result).toBe("from-env");
     });
@@ -93,7 +107,7 @@ describe("service environment", () => {
         {
           encoding: "utf-8",
           env: { ...process.env, NEMOCLAW_SANDBOX: "", SANDBOX_NAME: "" },
-        }
+        },
       ).trim();
       expect(result).toBe("default");
     });
@@ -105,12 +119,12 @@ describe("service environment", () => {
       const proxyBlock = execFileSync(
         "sed",
         ["-n", "/^PROXY_HOST=/,/^export no_proxy=/p", scriptPath],
-        { encoding: "utf-8" }
+        { encoding: "utf-8" },
       );
       if (!proxyBlock.trim()) {
         throw new Error(
           "Failed to extract proxy configuration from scripts/nemoclaw-start.sh — " +
-          "the PROXY_HOST..no_proxy block may have been moved or renamed"
+            "the PROXY_HOST..no_proxy block may have been moved or renamed",
         );
       }
       const wrapper = [
@@ -130,12 +144,18 @@ describe("service environment", () => {
           encoding: "utf-8",
           env: { ...process.env, ...env },
         }).trim();
-        return Object.fromEntries(out.split("\n").map((l) => {
-          const idx = l.indexOf("=");
-          return [l.slice(0, idx), l.slice(idx + 1)];
-        }));
+        return Object.fromEntries(
+          out.split("\n").map((l) => {
+            const idx = l.indexOf("=");
+            return [l.slice(0, idx), l.slice(idx + 1)];
+          }),
+        );
       } finally {
-        try { unlinkSync(tmpFile); } catch { /* ignore */ }
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* ignore */
+        }
       }
     }
 
@@ -193,12 +213,12 @@ describe("service environment", () => {
         const persistBlock = execFileSync(
           "sed",
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
-          { encoding: "utf-8" }
+          { encoding: "utf-8" },
         );
         if (!persistBlock.trim()) {
           throw new Error(
             "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
-            "the _PROXY_URL..chmod block may have been moved or renamed"
+              "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
         const wrapper = [
@@ -207,8 +227,8 @@ describe("service environment", () => {
           'PROXY_PORT="3128"',
           // Override the hardcoded path to use our temp dir
           persistBlock.trimEnd().replaceAll(
-            '/tmp/nemoclaw-proxy-env.sh',
-            `${fakeDataDir}/proxy-env.sh`
+            "/tmp/nemoclaw-proxy-env.sh",
+            `${fakeDataDir}/proxy-env.sh`,
           ),
         ].join("\n");
         writeFileSync(tmpFile, wrapper, { mode: 0o700 });
@@ -225,8 +245,16 @@ describe("service environment", () => {
         expect(envFile).toContain("HISTFILE");
         expect(envFile).toContain("GIT_CONFIG_GLOBAL");
       } finally {
-        try { unlinkSync(tmpFile); } catch { /* ignore */ }
-        try { execFileSync("rm", ["-rf", fakeDataDir]); } catch { /* ignore */ }
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          execFileSync("rm", ["-rf", fakeDataDir]);
+        } catch {
+          /* ignore */
+        }
       }
     });
 
@@ -239,12 +267,12 @@ describe("service environment", () => {
         const persistBlock = execFileSync(
           "sed",
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
-          { encoding: "utf-8" }
+          { encoding: "utf-8" },
         );
         if (!persistBlock.trim()) {
           throw new Error(
             "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
-            "the _PROXY_URL..chmod block may have been moved or renamed"
+              "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
         const wrapper = [
@@ -252,8 +280,8 @@ describe("service environment", () => {
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           persistBlock.trimEnd().replaceAll(
-            '/tmp/nemoclaw-proxy-env.sh',
-            `${fakeDataDir}/proxy-env.sh`
+            "/tmp/nemoclaw-proxy-env.sh",
+            `${fakeDataDir}/proxy-env.sh`,
           ),
         ].join("\n");
         writeFileSync(tmpFile, wrapper, { mode: 0o700 });
@@ -268,8 +296,16 @@ describe("service environment", () => {
         const httpProxyCount = (envFile.match(/export HTTP_PROXY=/g) || []).length;
         expect(httpProxyCount).toBe(1);
       } finally {
-        try { unlinkSync(tmpFile); } catch { /* ignore */ }
-        try { execFileSync("rm", ["-rf", fakeDataDir]); } catch { /* ignore */ }
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          execFileSync("rm", ["-rf", fakeDataDir]);
+        } catch {
+          /* ignore */
+        }
       }
     });
 
@@ -282,23 +318,24 @@ describe("service environment", () => {
         const persistBlock = execFileSync(
           "sed",
           ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
-          { encoding: "utf-8" }
+          { encoding: "utf-8" },
         );
         if (!persistBlock.trim()) {
           throw new Error(
             "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
-            "the _PROXY_URL..chmod block may have been moved or renamed"
+              "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
-        const makeWrapper = (host) => [
-          "#!/usr/bin/env bash",
-          `PROXY_HOST="${host}"`,
-          'PROXY_PORT="3128"',
-          persistBlock.trimEnd().replaceAll(
-            '/tmp/nemoclaw-proxy-env.sh',
-            `${fakeDataDir}/proxy-env.sh`
-          ),
-        ].join("\n");
+        const makeWrapper = (host) =>
+          [
+            "#!/usr/bin/env bash",
+            `PROXY_HOST="${host}"`,
+            'PROXY_PORT="3128"',
+            persistBlock.trimEnd().replaceAll(
+              "/tmp/nemoclaw-proxy-env.sh",
+              `${fakeDataDir}/proxy-env.sh`,
+            ),
+          ].join("\n");
 
         writeFileSync(tmpFile, makeWrapper("10.200.0.1"), { mode: 0o700 });
         execFileSync("bash", [tmpFile], { encoding: "utf-8" });
@@ -311,17 +348,24 @@ describe("service environment", () => {
         expect(envFile).toContain("192.168.1.99");
         expect(envFile).not.toContain("10.200.0.1");
       } finally {
-        try { unlinkSync(tmpFile); } catch { /* ignore */ }
-        try { execFileSync("rm", ["-rf", fakeDataDir]); } catch { /* ignore */ }
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          execFileSync("rm", ["-rf", fakeDataDir]);
+        } catch {
+          /* ignore */
+        }
       }
     });
 
-    it("[simulation] sourcing proxy-env.sh via .bashrc overrides narrow NO_PROXY", () => {
+    it("[simulation] sourcing proxy-env.sh overrides narrow NO_PROXY and no_proxy", () => {
       const fakeDataDir = join(tmpdir(), `nemoclaw-bashi-test-${process.pid}`);
       execFileSync("mkdir", ["-p", fakeDataDir]);
       try {
-        // Simulate the proxy-env.sh written by the entrypoint
-        const proxyEnvContent = [
+        const envContent = [
           'export HTTP_PROXY="http://10.200.0.1:3128"',
           'export HTTPS_PROXY="http://10.200.0.1:3128"',
           'export NO_PROXY="localhost,127.0.0.1,::1,10.200.0.1"',
@@ -329,25 +373,32 @@ describe("service environment", () => {
           'export https_proxy="http://10.200.0.1:3128"',
           'export no_proxy="localhost,127.0.0.1,::1,10.200.0.1"',
         ].join("\n");
-        const proxyEnvPath = join(fakeDataDir, "proxy-env.sh");
-        writeFileSync(proxyEnvPath, proxyEnvContent);
+        writeFileSync(join(fakeDataDir, "proxy-env.sh"), envContent);
 
-        // Simulate .bashrc that sources proxy-env.sh (as built by Dockerfile.base)
-        const bashrcPath = join(fakeDataDir, ".bashrc");
-        writeFileSync(bashrcPath, `[ -f ${JSON.stringify(proxyEnvPath)} ] && . ${JSON.stringify(proxyEnvPath)}`);
-
-        const out = execFileSync("bash", ["--norc", "-c", [
-          'export NO_PROXY="127.0.0.1,localhost,::1"',
-          'export no_proxy="127.0.0.1,localhost,::1"',
-          `source ${JSON.stringify(bashrcPath)}`,
-          'echo "NO_PROXY=$NO_PROXY"',
-          'echo "no_proxy=$no_proxy"',
-        ].join("; ")], { encoding: "utf-8" }).trim();
+        const out = execFileSync(
+          "bash",
+          [
+            "--norc",
+            "-c",
+            [
+              'export NO_PROXY="127.0.0.1,localhost,::1"',
+              'export no_proxy="127.0.0.1,localhost,::1"',
+              `source ${JSON.stringify(join(fakeDataDir, "proxy-env.sh"))}`,
+              'echo "NO_PROXY=$NO_PROXY"',
+              'echo "no_proxy=$no_proxy"',
+            ].join("; "),
+          ],
+          { encoding: "utf-8" },
+        ).trim();
 
         expect(out).toContain("NO_PROXY=localhost,127.0.0.1,::1,10.200.0.1");
         expect(out).toContain("no_proxy=localhost,127.0.0.1,::1,10.200.0.1");
       } finally {
-        try { execFileSync("rm", ["-rf", fakeDataDir]); } catch { /* ignore */ }
+        try {
+          execFileSync("rm", ["-rf", fakeDataDir]);
+        } catch {
+          /* ignore */
+        }
       }
     });
   });

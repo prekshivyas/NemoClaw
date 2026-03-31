@@ -91,6 +91,14 @@ repos:
         pass_filenames: true
         priority: 5
 
+      - id: prettier-js
+        name: Prettier (JavaScript)
+        entry: npx prettier --write
+        language: system
+        files: ^(bin|test)/.*\.js$
+        pass_filenames: true
+        priority: 5
+
   # ── Priority 6: auto-fix after formatting ─────────────────────────────────
   - repo: local
     hooks:
@@ -221,7 +229,7 @@ repos:
         entry: bash -c 'npx vitest run --project cli --coverage --coverage.reporter=text --coverage.reporter=json-summary --coverage.reportsDirectory=coverage/cli --coverage.include="bin/**/*.js" --coverage.exclude="test/**/*.js" --coverage.exclude="test/**/*.ts" && npx tsx scripts/check-coverage-ratchet.ts coverage/cli/coverage-summary.json ci/coverage-threshold-cli.json "CLI coverage"'
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^(bin/|test/)
         stages: [pre-push]
         priority: 20
 
@@ -230,7 +238,7 @@ repos:
         entry: bash -c 'npx vitest run --project plugin --coverage --coverage.reporter=text --coverage.reporter=json-summary --coverage.reportsDirectory=coverage/plugin --coverage.include="nemoclaw/src/**/*.ts" --coverage.exclude="**/*.test.ts" && npx tsx scripts/check-coverage-ratchet.ts coverage/plugin/coverage-summary.json ci/coverage-threshold-plugin.json "Plugin coverage"'
         language: system
         pass_filenames: false
-        always_run: true
+        files: ^nemoclaw/
         stages: [pre-push]
         priority: 20
 

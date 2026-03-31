@@ -226,10 +226,9 @@ describe("service environment", () => {
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           // Override the hardcoded path to use our temp dir
-          persistBlock.trimEnd().replaceAll(
-            "/tmp/nemoclaw-proxy-env.sh",
-            `${fakeDataDir}/proxy-env.sh`,
-          ),
+          persistBlock
+            .trimEnd()
+            .replaceAll("/tmp/nemoclaw-proxy-env.sh", `${fakeDataDir}/proxy-env.sh`),
         ].join("\n");
         writeFileSync(tmpFile, wrapper, { mode: 0o700 });
         execFileSync("bash", [tmpFile], { encoding: "utf-8" });
@@ -279,10 +278,9 @@ describe("service environment", () => {
           "#!/usr/bin/env bash",
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
-          persistBlock.trimEnd().replaceAll(
-            "/tmp/nemoclaw-proxy-env.sh",
-            `${fakeDataDir}/proxy-env.sh`,
-          ),
+          persistBlock
+            .trimEnd()
+            .replaceAll("/tmp/nemoclaw-proxy-env.sh", `${fakeDataDir}/proxy-env.sh`),
         ].join("\n");
         writeFileSync(tmpFile, wrapper, { mode: 0o700 });
         const runOpts = { encoding: /** @type {const} */ ("utf-8") };
@@ -331,10 +329,9 @@ describe("service environment", () => {
             "#!/usr/bin/env bash",
             `PROXY_HOST="${host}"`,
             'PROXY_PORT="3128"',
-            persistBlock.trimEnd().replaceAll(
-              "/tmp/nemoclaw-proxy-env.sh",
-              `${fakeDataDir}/proxy-env.sh`,
-            ),
+            persistBlock
+              .trimEnd()
+              .replaceAll("/tmp/nemoclaw-proxy-env.sh", `${fakeDataDir}/proxy-env.sh`),
           ].join("\n");
 
         writeFileSync(tmpFile, makeWrapper("10.200.0.1"), { mode: 0o700 });

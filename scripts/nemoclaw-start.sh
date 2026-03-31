@@ -260,7 +260,7 @@ _PROXY_ENV_FILE="/tmp/nemoclaw-proxy-env.sh"
 # Remove any pre-existing file/symlink to prevent symlink-following attacks,
 # then write a fresh file.
 rm -f "$_PROXY_ENV_FILE" 2>/dev/null || true
-cat > "$_PROXY_ENV_FILE" <<PROXYEOF
+cat >"$_PROXY_ENV_FILE" <<PROXYEOF
 # Proxy configuration (overrides narrow OpenShell defaults on connect)
 export HTTP_PROXY="$_PROXY_URL"
 export HTTPS_PROXY="$_PROXY_URL"

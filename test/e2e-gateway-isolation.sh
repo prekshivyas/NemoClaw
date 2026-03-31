@@ -218,19 +218,11 @@ else
   fi
 fi
 
-# ── Test 13: /sandbox is read-only for sandbox user (#804) ────────
+# ── Test 13: Sandbox user cannot write to .nemoclaw parent ────────
+# Note: /sandbox itself is sandbox-owned (DAC allows writes). Landlock makes it
+# read-only in production — tested in checks/04-landlock-readonly.sh instead.
 
-info "13. Sandbox user cannot create files in /sandbox"
-OUT=$(run_as_sandbox "touch /sandbox/testfile 2>&1 || echo BLOCKED")
-if echo "$OUT" | grep -q "BLOCKED\|Permission denied\|Read-only"; then
-  pass "sandbox cannot create files in /sandbox"
-else
-  fail "sandbox CAN create files in /sandbox: $OUT"
-fi
-
-# ── Test 14: Sandbox user cannot write to .nemoclaw parent ────────
-
-info "14. Sandbox user cannot create files in /sandbox/.nemoclaw"
+info "13. Sandbox user cannot create files in /sandbox/.nemoclaw"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/testfile 2>&1 || echo BLOCKED")
 if echo "$OUT" | grep -q "BLOCKED\|Permission denied"; then
   pass "sandbox cannot create files in .nemoclaw parent (root-owned)"
@@ -238,9 +230,9 @@ else
   fail "sandbox CAN create files in .nemoclaw parent: $OUT"
 fi
 
-# ── Test 15: Sandbox user cannot modify blueprints ────────────────
+# ── Test 14: Sandbox user cannot modify blueprints ────────────────
 
-info "15. Sandbox user cannot modify blueprints"
+info "14. Sandbox user cannot modify blueprints"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/blueprints/testfile 2>&1 || echo BLOCKED")
 if echo "$OUT" | grep -q "BLOCKED\|Permission denied"; then
   pass "sandbox cannot write to blueprints (root-owned)"
@@ -248,9 +240,9 @@ else
   fail "sandbox CAN write to blueprints: $OUT"
 fi
 
-# ── Test 16: Sandbox user CAN write to .nemoclaw/state ────────────
+# ── Test 15: Sandbox user CAN write to .nemoclaw/state ────────────
 
-info "16. Sandbox user can write to .nemoclaw/state"
+info "15. Sandbox user can write to .nemoclaw/state"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/state/testfile && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .nemoclaw/state (sandbox-owned)"
@@ -258,9 +250,9 @@ else
   fail "sandbox cannot write to .nemoclaw/state: $OUT"
 fi
 
-# ── Test 17: Sandbox user CAN write to .openclaw-data ─────────────
+# ── Test 16: Sandbox user CAN write to .openclaw-data ─────────────
 
-info "17. Sandbox user can write to .openclaw-data"
+info "16. Sandbox user can write to .openclaw-data"
 OUT=$(run_as_sandbox "touch /sandbox/.openclaw-data/testfile && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .openclaw-data (sandbox-owned)"
@@ -268,9 +260,9 @@ else
   fail "sandbox cannot write to .openclaw-data: $OUT"
 fi
 
-# ── Test 18: Sandbox user cannot rename/delete blueprints dir ─────
+# ── Test 17: Sandbox user cannot rename/delete blueprints dir ─────
 
-info "18. Sandbox user cannot rename blueprints directory"
+info "17. Sandbox user cannot rename blueprints directory"
 OUT=$(run_as_sandbox "mv /sandbox/.nemoclaw/blueprints /sandbox/.nemoclaw/blueprints-evil 2>&1 || echo BLOCKED")
 if echo "$OUT" | grep -q "BLOCKED\|Permission denied"; then
   pass "sandbox cannot rename blueprints (parent is root-owned)"
@@ -278,9 +270,9 @@ else
   fail "sandbox CAN rename blueprints: $OUT"
 fi
 
-# ── Test 19: Sandbox user CAN write to .nemoclaw/migration ────────
+# ── Test 18: Sandbox user CAN write to .nemoclaw/migration ────────
 
-info "19. Sandbox user can write to .nemoclaw/migration"
+info "18. Sandbox user can write to .nemoclaw/migration"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/migration/testfile && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .nemoclaw/migration (sandbox-owned)"
@@ -288,9 +280,9 @@ else
   fail "sandbox cannot write to .nemoclaw/migration: $OUT"
 fi
 
-# ── Test 20: Sandbox user CAN write to .nemoclaw/snapshots ────────
+# ── Test 19: Sandbox user CAN write to .nemoclaw/snapshots ────────
 
-info "20. Sandbox user can write to .nemoclaw/snapshots"
+info "19. Sandbox user can write to .nemoclaw/snapshots"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/snapshots/testfile && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .nemoclaw/snapshots (sandbox-owned)"
@@ -298,9 +290,9 @@ else
   fail "sandbox cannot write to .nemoclaw/snapshots: $OUT"
 fi
 
-# ── Test 21: Sandbox user CAN write to .nemoclaw/staging ──────────
+# ── Test 20: Sandbox user CAN write to .nemoclaw/staging ──────────
 
-info "21. Sandbox user can write to .nemoclaw/staging"
+info "20. Sandbox user can write to .nemoclaw/staging"
 OUT=$(run_as_sandbox "touch /sandbox/.nemoclaw/staging/testfile && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .nemoclaw/staging (sandbox-owned)"
@@ -308,9 +300,9 @@ else
   fail "sandbox cannot write to .nemoclaw/staging: $OUT"
 fi
 
-# ── Test 22: Sandbox user CAN write to .nemoclaw/config.json ──────
+# ── Test 21: Sandbox user CAN write to .nemoclaw/config.json ──────
 
-info "22. Sandbox user can write to .nemoclaw/config.json"
+info "21. Sandbox user can write to .nemoclaw/config.json"
 OUT=$(run_as_sandbox "echo '{}' > /sandbox/.nemoclaw/config.json && echo OK || echo FAILED")
 if echo "$OUT" | grep -q "OK"; then
   pass "sandbox can write to .nemoclaw/config.json (sandbox-owned)"
@@ -318,9 +310,9 @@ else
   fail "sandbox cannot write to .nemoclaw/config.json: $OUT"
 fi
 
-# ── Test 23: Sandbox user cannot create new files in .openclaw ────
+# ── Test 22: Sandbox user cannot create new files in .openclaw ────
 
-info "23. Sandbox user cannot create new files in .openclaw directory"
+info "22. Sandbox user cannot create new files in .openclaw directory"
 OUT=$(run_as_sandbox "touch /sandbox/.openclaw/newfile 2>&1 || echo BLOCKED")
 if echo "$OUT" | grep -q "BLOCKED\|Permission denied"; then
   pass "sandbox cannot create new files in .openclaw (root-owned dir)"
@@ -328,9 +320,9 @@ else
   fail "sandbox CAN create new files in .openclaw: $OUT"
 fi
 
-# ── Test 24: .bashrc sources proxy-env from /tmp ──────────────────
+# ── Test 23: .bashrc sources proxy-env from /tmp ──────────────────
 
-info "24. .bashrc sources proxy config from /tmp"
+info "23. .bashrc sources proxy config from /tmp"
 OUT=$(run_as_sandbox "cat /sandbox/.bashrc")
 if echo "$OUT" | grep -q "/tmp/nemoclaw-proxy-env.sh"; then
   pass ".bashrc sources /tmp/nemoclaw-proxy-env.sh"
@@ -338,9 +330,9 @@ else
   fail ".bashrc does not source from expected path: $OUT"
 fi
 
-# ── Test 25: .profile sources proxy-env from /tmp ─────────────────
+# ── Test 24: .profile sources proxy-env from /tmp ─────────────────
 
-info "25. .profile sources proxy config from /tmp"
+info "24. .profile sources proxy config from /tmp"
 OUT=$(run_as_sandbox "cat /sandbox/.profile")
 if echo "$OUT" | grep -q "/tmp/nemoclaw-proxy-env.sh"; then
   pass ".profile sources /tmp/nemoclaw-proxy-env.sh"

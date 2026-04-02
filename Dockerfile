@@ -142,6 +142,21 @@ RUN openclaw doctor --fix > /dev/null 2>&1 || true \
 # The writable state lives in .openclaw-data, reached via the symlinks.
 # hadolint ignore=DL3002
 USER root
+
+# Ensure .openclaw-data subdirs and symlinks exist for logs, credentials, and
+# sandbox. These are defined in Dockerfile.base but the GHCR base image may
+# not have been rebuilt yet. Idempotent — harmless once the base catches up.
+# Ref: https://github.com/NVIDIA/NemoClaw/issues/804
+RUN mkdir -p /sandbox/.openclaw-data/logs \
+        /sandbox/.openclaw-data/credentials \
+        /sandbox/.openclaw-data/sandbox \
+    && chown sandbox:sandbox /sandbox/.openclaw-data/logs \
+        /sandbox/.openclaw-data/credentials \
+        /sandbox/.openclaw-data/sandbox \
+    && for dir in logs credentials sandbox; do \
+        [ -L "/sandbox/.openclaw/$dir" ] || ln -s "/sandbox/.openclaw-data/$dir" "/sandbox/.openclaw/$dir"; \
+    done
+
 RUN chown root:root /sandbox/.openclaw \
     && find /sandbox/.openclaw -mindepth 1 -maxdepth 1 -exec chown -h root:root {} + \
     && chmod 755 /sandbox/.openclaw \

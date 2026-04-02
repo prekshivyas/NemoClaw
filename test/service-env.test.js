@@ -334,6 +334,19 @@ describe("service environment", () => {
       expect(src).toContain('export PYTHONHISTFILE="/tmp/.python_history"');
       expect(src).toContain('export npm_config_prefix="/tmp/npm-global"');
     });
+
+    it("entrypoint pre-creates redirected dirs as sandbox user", () => {
+      const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
+      const src = readFileSync(scriptPath, "utf-8");
+      // install -d creates dirs with correct ownership before the gateway
+      // starts, preventing gateway:gateway ownership that blocks sandbox writes
+      expect(src).toContain("install -d -o sandbox -g sandbox");
+      expect(src).toContain("/tmp/.config");
+      expect(src).toContain("/tmp/.cache");
+      expect(src).toContain("/tmp/.local/share");
+      expect(src).toContain("/tmp/.gnupg");
+      expect(src).toContain("/tmp/npm-global");
+    });
   });
 
   describe("proxy environment variables (issue #626)", () => {

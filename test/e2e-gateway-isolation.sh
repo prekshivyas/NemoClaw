@@ -147,7 +147,7 @@ fi
 
 info "9. All .openclaw symlinks point to .openclaw-data"
 FAILED_LINKS=""
-for link in agents extensions workspace skills hooks identity devices canvas cron memory; do
+for link in agents extensions workspace skills hooks identity devices canvas cron memory logs credentials sandbox; do
   OUT=$(run_as_root "readlink -f /sandbox/.openclaw/$link")
   if [ "$OUT" != "/sandbox/.openclaw-data/$link" ]; then
     FAILED_LINKS="$FAILED_LINKS $link->$OUT"

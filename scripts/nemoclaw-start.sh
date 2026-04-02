@@ -51,6 +51,16 @@ export PYTHONHISTFILE="/tmp/.python_history"
 export CLAUDE_CONFIG_DIR="/tmp/.claude"
 export npm_config_prefix="/tmp/npm-global"
 
+# Pre-create redirected directories as sandbox user to prevent ownership
+# conflicts. The gateway starts first (as gateway user) and inherits these
+# env vars — if it creates a dir first, it would be gateway:gateway 755 and
+# the sandbox user couldn't write subdirs later. Creating them now (as root,
+# chowned to sandbox) ensures the sandbox user always has write access.
+install -d -o sandbox -g sandbox -m 755 \
+  /tmp/.npm-cache /tmp/.cache /tmp/.config /tmp/.local/share \
+  /tmp/.local/state /tmp/.runtime /tmp/.gnupg /tmp/.claude \
+  /tmp/npm-global
+
 # ── Drop unnecessary Linux capabilities ──────────────────────────
 # CIS Docker Benchmark 5.3: containers should not run with default caps.
 # OpenShell manages the container runtime so we cannot pass --cap-drop=ALL

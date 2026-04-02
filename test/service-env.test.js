@@ -319,6 +319,23 @@ describe("service environment", () => {
     });
   });
 
+  describe("XDG and tool cache redirects (issue #804)", () => {
+    it("entrypoint exports redirect all XDG and tool dirs to /tmp", () => {
+      const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
+      const src = readFileSync(scriptPath, "utf-8");
+      // XDG base dirs
+      expect(src).toContain('export XDG_CACHE_HOME="/tmp/.cache"');
+      expect(src).toContain('export XDG_CONFIG_HOME="/tmp/.config"');
+      expect(src).toContain('export XDG_DATA_HOME="/tmp/.local/share"');
+      expect(src).toContain('export XDG_STATE_HOME="/tmp/.local/state"');
+      expect(src).toContain('export XDG_RUNTIME_DIR="/tmp/.runtime"');
+      // Tool-specific redirects
+      expect(src).toContain('export GNUPGHOME="/tmp/.gnupg"');
+      expect(src).toContain('export PYTHONHISTFILE="/tmp/.python_history"');
+      expect(src).toContain('export npm_config_prefix="/tmp/npm-global"');
+    });
+  });
+
   describe("proxy environment variables (issue #626)", () => {
     function extractProxyVars(env = {}) {
       const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
@@ -449,6 +466,14 @@ describe("service environment", () => {
         expect(envFile).toContain("npm_config_cache");
         expect(envFile).toContain("HISTFILE");
         expect(envFile).toContain("GIT_CONFIG_GLOBAL");
+        // XDG redirects prevent tools from writing to read-only /sandbox (#804)
+        expect(envFile).toContain('XDG_CONFIG_HOME="/tmp/.config"');
+        expect(envFile).toContain('XDG_DATA_HOME="/tmp/.local/share"');
+        expect(envFile).toContain('XDG_STATE_HOME="/tmp/.local/state"');
+        expect(envFile).toContain('XDG_RUNTIME_DIR="/tmp/.runtime"');
+        expect(envFile).toContain('GNUPGHOME="/tmp/.gnupg"');
+        expect(envFile).toContain('PYTHONHISTFILE="/tmp/.python_history"');
+        expect(envFile).toContain('npm_config_prefix="/tmp/npm-global"');
       } finally {
         try {
           unlinkSync(tmpFile);

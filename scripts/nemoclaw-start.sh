@@ -38,11 +38,18 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # in the Landlock read-only home and fail.
 export npm_config_cache="/tmp/.npm-cache"
 export XDG_CACHE_HOME="/tmp/.cache"
+export XDG_CONFIG_HOME="/tmp/.config"
+export XDG_DATA_HOME="/tmp/.local/share"
+export XDG_STATE_HOME="/tmp/.local/state"
+export XDG_RUNTIME_DIR="/tmp/.runtime"
 export NODE_REPL_HISTORY="/tmp/.node_repl_history"
 export HISTFILE="/tmp/.bash_history"
 export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
+export GNUPGHOME="/tmp/.gnupg"
 export PYTHONUSERBASE="/tmp/.local"
+export PYTHONHISTFILE="/tmp/.python_history"
 export CLAUDE_CONFIG_DIR="/tmp/.claude"
+export npm_config_prefix="/tmp/npm-global"
 
 # ── Drop unnecessary Linux capabilities ──────────────────────────
 # CIS Docker Benchmark 5.3: containers should not run with default caps.
@@ -318,11 +325,18 @@ export no_proxy="$_NO_PROXY_VAL"
 # Tool cache redirects — /sandbox is Landlock read-only (#804)
 export npm_config_cache="/tmp/.npm-cache"
 export XDG_CACHE_HOME="/tmp/.cache"
+export XDG_CONFIG_HOME="/tmp/.config"
+export XDG_DATA_HOME="/tmp/.local/share"
+export XDG_STATE_HOME="/tmp/.local/state"
+export XDG_RUNTIME_DIR="/tmp/.runtime"
 export NODE_REPL_HISTORY="/tmp/.node_repl_history"
 export HISTFILE="/tmp/.bash_history"
 export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
+export GNUPGHOME="/tmp/.gnupg"
 export PYTHONUSERBASE="/tmp/.local"
+export PYTHONHISTFILE="/tmp/.python_history"
 export CLAUDE_CONFIG_DIR="/tmp/.claude"
+export npm_config_prefix="/tmp/npm-global"
 PROXYEOF
 chmod 644 "$_PROXY_ENV_FILE"
 

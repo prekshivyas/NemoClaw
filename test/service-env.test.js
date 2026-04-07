@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { execSync, execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, unlinkSync, readFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, unlinkSync, readFileSync, lstatSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveOpenshell } from "../bin/lib/resolve-openshell";
@@ -323,16 +323,18 @@ describe("service environment", () => {
     it("entrypoint exports redirect all XDG and tool dirs to /tmp", () => {
       const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
       const src = readFileSync(scriptPath, "utf-8");
+      // Redirects are defined in the _TOOL_REDIRECTS array (single source of truth)
+      expect(src).toContain("_TOOL_REDIRECTS=(");
       // XDG base dirs
-      expect(src).toContain('export XDG_CACHE_HOME="/tmp/.cache"');
-      expect(src).toContain('export XDG_CONFIG_HOME="/tmp/.config"');
-      expect(src).toContain('export XDG_DATA_HOME="/tmp/.local/share"');
-      expect(src).toContain('export XDG_STATE_HOME="/tmp/.local/state"');
-      expect(src).toContain('export XDG_RUNTIME_DIR="/tmp/.runtime"');
+      expect(src).toContain("XDG_CACHE_HOME=/tmp/.cache");
+      expect(src).toContain("XDG_CONFIG_HOME=/tmp/.config");
+      expect(src).toContain("XDG_DATA_HOME=/tmp/.local/share");
+      expect(src).toContain("XDG_STATE_HOME=/tmp/.local/state");
+      expect(src).toContain("XDG_RUNTIME_DIR=/tmp/.runtime");
       // Tool-specific redirects
-      expect(src).toContain('export GNUPGHOME="/tmp/.gnupg"');
-      expect(src).toContain('export PYTHONHISTFILE="/tmp/.python_history"');
-      expect(src).toContain('export npm_config_prefix="/tmp/npm-global"');
+      expect(src).toContain("GNUPGHOME=/tmp/.gnupg");
+      expect(src).toContain("PYTHONHISTFILE=/tmp/.python_history");
+      expect(src).toContain("npm_config_prefix=/tmp/npm-global");
     });
 
     it("entrypoint pre-creates redirected dirs as sandbox user", () => {
@@ -350,6 +352,22 @@ describe("service environment", () => {
   });
 
   describe("proxy environment variables (issue #626)", () => {
+    function extractToolRedirects() {
+      const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
+      const block = execFileSync(
+        "sed",
+        ["-n", "/^_TOOL_REDIRECTS=/,/^done$/p", scriptPath],
+        { encoding: "utf-8" },
+      );
+      if (!block.trim()) {
+        throw new Error(
+          "Failed to extract _TOOL_REDIRECTS from scripts/nemoclaw-start.sh — " +
+            "the array may have been moved or renamed",
+        );
+      }
+      return block.trimEnd();
+    }
+
     function extractProxyVars(env = {}) {
       const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
       const proxyBlock = execFileSync(
@@ -457,8 +475,10 @@ describe("service environment", () => {
               "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
+        const toolRedirects = extractToolRedirects();
         const wrapper = [
           "#!/usr/bin/env bash",
+          toolRedirects,
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           // Override the hardcoded path to use our temp dir
@@ -480,13 +500,13 @@ describe("service environment", () => {
         expect(envFile).toContain("HISTFILE");
         expect(envFile).toContain("GIT_CONFIG_GLOBAL");
         // XDG redirects prevent tools from writing to read-only /sandbox (#804)
-        expect(envFile).toContain('XDG_CONFIG_HOME="/tmp/.config"');
-        expect(envFile).toContain('XDG_DATA_HOME="/tmp/.local/share"');
-        expect(envFile).toContain('XDG_STATE_HOME="/tmp/.local/state"');
-        expect(envFile).toContain('XDG_RUNTIME_DIR="/tmp/.runtime"');
-        expect(envFile).toContain('GNUPGHOME="/tmp/.gnupg"');
-        expect(envFile).toContain('PYTHONHISTFILE="/tmp/.python_history"');
-        expect(envFile).toContain('npm_config_prefix="/tmp/npm-global"');
+        expect(envFile).toContain("XDG_CONFIG_HOME=/tmp/.config");
+        expect(envFile).toContain("XDG_DATA_HOME=/tmp/.local/share");
+        expect(envFile).toContain("XDG_STATE_HOME=/tmp/.local/state");
+        expect(envFile).toContain("XDG_RUNTIME_DIR=/tmp/.runtime");
+        expect(envFile).toContain("GNUPGHOME=/tmp/.gnupg");
+        expect(envFile).toContain("PYTHONHISTFILE=/tmp/.python_history");
+        expect(envFile).toContain("npm_config_prefix=/tmp/npm-global");
       } finally {
         try {
           unlinkSync(tmpFile);
@@ -518,8 +538,10 @@ describe("service environment", () => {
               "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
+        const toolRedirects = extractToolRedirects();
         const wrapper = [
           "#!/usr/bin/env bash",
+          toolRedirects,
           'PROXY_HOST="10.200.0.1"',
           'PROXY_PORT="3128"',
           persistBlock
@@ -568,9 +590,11 @@ describe("service environment", () => {
               "the _PROXY_URL..chmod block may have been moved or renamed",
           );
         }
+        const toolRedirects = extractToolRedirects();
         const makeWrapper = (host) =>
           [
             "#!/usr/bin/env bash",
+            toolRedirects,
             `PROXY_HOST="${host}"`,
             'PROXY_PORT="3128"',
             persistBlock
@@ -588,6 +612,54 @@ describe("service environment", () => {
         envFile = readFileSync(join(fakeDataDir, "proxy-env.sh"), "utf-8");
         expect(envFile).toContain("192.168.1.99");
         expect(envFile).not.toContain("10.200.0.1");
+      } finally {
+        try {
+          unlinkSync(tmpFile);
+        } catch {
+          /* ignore */
+        }
+        try {
+          execFileSync("rm", ["-rf", fakeDataDir]);
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+
+    it("rm -f prevents symlink-following attack on proxy-env.sh", () => {
+      const fakeDataDir = join(tmpdir(), `nemoclaw-symlink-test-${process.pid}`);
+      execFileSync("mkdir", ["-p", fakeDataDir]);
+      const tmpFile = join(tmpdir(), `nemoclaw-symlink-write-test-${process.pid}.sh`);
+      try {
+        const scriptPath = join(import.meta.dirname, "../scripts/nemoclaw-start.sh");
+        const persistBlock = execFileSync(
+          "sed",
+          ["-n", "/^_PROXY_URL=/,/^chmod 644/p", scriptPath],
+          { encoding: "utf-8" },
+        );
+        if (!persistBlock.trim()) {
+          throw new Error(
+            "Failed to extract proxy persistence block from scripts/nemoclaw-start.sh — " +
+              "the _PROXY_URL..chmod block may have been moved or renamed",
+          );
+        }
+        const sensitiveFile = join(fakeDataDir, "sensitive");
+        writeFileSync(sensitiveFile, "SECRET_DATA");
+        const proxyEnvPath = join(fakeDataDir, "proxy-env.sh");
+        execFileSync("ln", ["-sf", sensitiveFile, proxyEnvPath]);
+        const toolRedirects = extractToolRedirects();
+        const wrapper = [
+          "#!/usr/bin/env bash",
+          toolRedirects,
+          'PROXY_HOST="10.200.0.1"',
+          'PROXY_PORT="3128"',
+          persistBlock.trimEnd().replaceAll("/tmp/nemoclaw-proxy-env.sh", proxyEnvPath),
+        ].join("\n");
+        writeFileSync(tmpFile, wrapper, { mode: 0o700 });
+        execFileSync("bash", [tmpFile], { encoding: "utf-8" });
+        const stat = lstatSync(proxyEnvPath);
+        expect(stat.isSymbolicLink()).toBe(false);
+        expect(readFileSync(sensitiveFile, "utf-8")).toBe("SECRET_DATA");
       } finally {
         try {
           unlinkSync(tmpFile);

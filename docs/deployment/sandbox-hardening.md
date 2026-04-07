@@ -103,6 +103,23 @@ This prevents agents from:
 The image build pre-creates shell init files `.bashrc` and `.profile`.
 These files source runtime proxy configuration from `/tmp/nemoclaw-proxy-env.sh`.
 
+### Landlock Kernel Requirements
+
+Landlock LSM requires Linux kernel 5.13 or later with `CONFIG_SECURITY_LANDLOCK=y`.
+The NemoClaw sandbox policy uses `compatibility: best_effort`, which means Landlock enforcement is silently skipped on kernels that do not support it.
+
+On such kernels, protection falls back to DAC (file ownership and permissions) only.
+Files owned by the sandbox user (e.g., `.bashrc`, `.profile`) would be writable by the agent despite the Landlock read-only policy.
+
+Operators should verify Landlock availability:
+
+```console
+$ ls /sys/kernel/security/landlock
+```
+
+For production deployments, kernel 5.13+ with Landlock enabled is strongly recommended.
+The `test/e2e/e2e-cloud-experimental/checks/04-landlock-readonly.sh` script validates enforcement at runtime.
+
 ## References
 
 - [#804](https://github.com/NVIDIA/NemoClaw/issues/804) — Read-only home directory

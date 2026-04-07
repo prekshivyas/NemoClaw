@@ -36,20 +36,29 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 # /sandbox home directory (#804). Without these, tools would try to create
 # dotfiles (~/.npm, ~/.cache, ~/.bash_history, ~/.gitconfig, ~/.local, ~/.claude)
 # in the Landlock read-only home and fail.
-export npm_config_cache="/tmp/.npm-cache"
-export XDG_CACHE_HOME="/tmp/.cache"
-export XDG_CONFIG_HOME="/tmp/.config"
-export XDG_DATA_HOME="/tmp/.local/share"
-export XDG_STATE_HOME="/tmp/.local/state"
-export XDG_RUNTIME_DIR="/tmp/.runtime"
-export NODE_REPL_HISTORY="/tmp/.node_repl_history"
-export HISTFILE="/tmp/.bash_history"
-export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
-export GNUPGHOME="/tmp/.gnupg"
-export PYTHONUSERBASE="/tmp/.local"
-export PYTHONHISTFILE="/tmp/.python_history"
-export CLAUDE_CONFIG_DIR="/tmp/.claude"
-export npm_config_prefix="/tmp/npm-global"
+#
+# IMPORTANT: This array is the single source of truth for tool-cache redirects.
+# The same entries are emitted into /tmp/nemoclaw-proxy-env.sh (see below) so
+# that `openshell sandbox connect` sessions also pick up the redirects.
+_TOOL_REDIRECTS=(
+  'npm_config_cache=/tmp/.npm-cache'
+  'XDG_CACHE_HOME=/tmp/.cache'
+  'XDG_CONFIG_HOME=/tmp/.config'
+  'XDG_DATA_HOME=/tmp/.local/share'
+  'XDG_STATE_HOME=/tmp/.local/state'
+  'XDG_RUNTIME_DIR=/tmp/.runtime'
+  'NODE_REPL_HISTORY=/tmp/.node_repl_history'
+  'HISTFILE=/tmp/.bash_history'
+  'GIT_CONFIG_GLOBAL=/tmp/.gitconfig'
+  'GNUPGHOME=/tmp/.gnupg'
+  'PYTHONUSERBASE=/tmp/.local'
+  'PYTHONHISTFILE=/tmp/.python_history'
+  'CLAUDE_CONFIG_DIR=/tmp/.claude'
+  'npm_config_prefix=/tmp/npm-global'
+)
+for _redir in "${_TOOL_REDIRECTS[@]}"; do
+  export "${_redir?}"
+done
 
 # Pre-create redirected directories as sandbox user to prevent ownership
 # conflicts. The gateway starts first (as gateway user) and inherits these
@@ -324,7 +333,8 @@ _PROXY_ENV_FILE="/tmp/nemoclaw-proxy-env.sh"
 # Remove any pre-existing file/symlink to prevent symlink-following attacks,
 # then write a fresh file.
 rm -f "$_PROXY_ENV_FILE" 2>/dev/null || true
-cat >"$_PROXY_ENV_FILE" <<PROXYEOF
+{
+  cat <<PROXYEOF
 # Proxy configuration (overrides narrow OpenShell defaults on connect)
 export HTTP_PROXY="$_PROXY_URL"
 export HTTPS_PROXY="$_PROXY_URL"
@@ -332,29 +342,24 @@ export NO_PROXY="$_NO_PROXY_VAL"
 export http_proxy="$_PROXY_URL"
 export https_proxy="$_PROXY_URL"
 export no_proxy="$_NO_PROXY_VAL"
-# Tool cache redirects — /sandbox is Landlock read-only (#804)
-export npm_config_cache="/tmp/.npm-cache"
-export XDG_CACHE_HOME="/tmp/.cache"
-export XDG_CONFIG_HOME="/tmp/.config"
-export XDG_DATA_HOME="/tmp/.local/share"
-export XDG_STATE_HOME="/tmp/.local/state"
-export XDG_RUNTIME_DIR="/tmp/.runtime"
-export NODE_REPL_HISTORY="/tmp/.node_repl_history"
-export HISTFILE="/tmp/.bash_history"
-export GIT_CONFIG_GLOBAL="/tmp/.gitconfig"
-export GNUPGHOME="/tmp/.gnupg"
-export PYTHONUSERBASE="/tmp/.local"
-export PYTHONHISTFILE="/tmp/.python_history"
-export CLAUDE_CONFIG_DIR="/tmp/.claude"
-export npm_config_prefix="/tmp/npm-global"
 PROXYEOF
+  # Tool cache redirects — generated from _TOOL_REDIRECTS (single source of truth)
+  echo '# Tool cache redirects — /sandbox is Landlock read-only (#804)'
+  for _redir in "${_TOOL_REDIRECTS[@]}"; do
+    echo "export ${_redir?}"
+  done
+} >"$_PROXY_ENV_FILE"
 chmod 644 "$_PROXY_ENV_FILE"
 
 # ── Main ─────────────────────────────────────────────────────────
 
 echo 'Setting up NemoClaw...' >&2
 # Best-effort: .env may not exist, and /sandbox is Landlock read-only (#804).
-[ -f .env ] && chmod 600 .env 2>/dev/null || true
+if [ -f .env ]; then
+  if ! chmod 600 .env 2>/dev/null; then
+    echo "[SECURITY WARNING] Could not restrict .env permissions — file may be world-readable (read-only filesystem)" >&2
+  fi
+fi
 
 # ── Non-root fallback ──────────────────────────────────────────
 # OpenShell runs containers with --security-opt=no-new-privileges, which

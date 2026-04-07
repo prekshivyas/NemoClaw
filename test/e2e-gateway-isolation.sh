@@ -147,7 +147,7 @@ fi
 
 info "9. All .openclaw symlinks point to .openclaw-data"
 FAILED_LINKS=""
-for link in agents extensions workspace skills hooks identity devices canvas cron memory logs credentials sandbox; do
+for link in agents extensions workspace skills hooks identity devices canvas cron memory logs credentials sandbox telegram; do
   OUT=$(run_as_root "readlink -f /sandbox/.openclaw/$link")
   if [ "$OUT" != "/sandbox/.openclaw-data/$link" ]; then
     FAILED_LINKS="$FAILED_LINKS $link->$OUT"
@@ -344,6 +344,18 @@ elif echo "$OUT" | grep -q "MISSING\|No such file"; then
   info "SKIP: .profile not present (base image needs rebuild for #804)"
 else
   fail ".profile does not source from expected path: $OUT"
+fi
+
+# ── Test 25: Non-root mode executes without gosu ──────────────────
+# The entrypoint detects uid != 0, skips gosu, and execs the command directly.
+# Verifies the non-root fallback path works after read-only /sandbox (#804).
+
+info "25. Non-root mode executes command without gosu"
+OUT=$(docker run --rm --user 1000:1000 "$IMAGE" echo "NON_ROOT_EXEC_OK" 2>&1 || true)
+if echo "$OUT" | grep -q "NON_ROOT_EXEC_OK"; then
+  pass "non-root mode executed command directly (no gosu)"
+else
+  fail "non-root command execution failed: $OUT"
 fi
 
 # ── Summary ──────────────────────────────────────────────────────

@@ -134,6 +134,7 @@ NEMOCLAW_CMD=("$@")
 CHAT_UI_URL="${CHAT_UI_URL:-http://127.0.0.1:18789}"
 PUBLIC_PORT=18789
 OPENCLAW="$(command -v openclaw)" # Resolve once, use absolute path everywhere
+_SANDBOX_HOME="/sandbox"          # Home dir for the sandbox user (useradd -d /sandbox in Dockerfile.base)
 
 # ── Config integrity check ──────────────────────────────────────
 # The config hash was pinned at build time. If it doesn't match,

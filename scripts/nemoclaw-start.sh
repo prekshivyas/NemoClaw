@@ -205,9 +205,10 @@ with open(config_file) as f:
 # Patch primary model reference
 cfg["agents"]["defaults"]["model"]["primary"] = model_override
 
-# Patch model name in provider config
+# Patch model id and name in provider config
 for pkey, pval in cfg.get("models", {}).get("providers", {}).items():
     for m in pval.get("models", []):
+        m["id"] = model_override
         m["name"] = model_override
 
     # Patch inference API type if overridden (cross-provider switch)

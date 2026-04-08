@@ -218,9 +218,14 @@ RUN sha256sum /sandbox/.openclaw/openclaw.json > /sandbox/.openclaw/.config-hash
 # runtime. Root ownership on the parent prevents the agent from renaming or
 # replacing the root-owned blueprints directory. Only state/, migration/,
 # snapshots/, and config.json are sandbox-owned for runtime writes.
+# Sticky bit (1755): OpenShell's prepare_filesystem() chowns read_write paths
+# to run_as_user at sandbox start, flipping this dir to sandbox:sandbox.
+# The sticky bit survives the chown and prevents the sandbox user from
+# renaming or deleting root-owned entries (blueprints/).
 # Ref: https://github.com/NVIDIA/NemoClaw/issues/804
+# Ref: https://github.com/NVIDIA/NemoClaw/issues/1607
 RUN chown root:root /sandbox/.nemoclaw \
-    && chmod 755 /sandbox/.nemoclaw \
+    && chmod 1755 /sandbox/.nemoclaw \
     && chown -R root:root /sandbox/.nemoclaw/blueprints \
     && chmod -R 755 /sandbox/.nemoclaw/blueprints \
     && mkdir -p /sandbox/.nemoclaw/state /sandbox/.nemoclaw/migration /sandbox/.nemoclaw/snapshots /sandbox/.nemoclaw/staging \

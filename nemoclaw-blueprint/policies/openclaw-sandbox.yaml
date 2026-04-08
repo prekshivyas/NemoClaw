@@ -45,8 +45,8 @@ filesystem_policy:
     - /dev/null
     - /sandbox/.openclaw-data       # Writable agent/plugin state (symlinked from .openclaw)
     - /sandbox/.nemoclaw            # Plugin state and config (state.ts, config.ts).
-                                    # Blueprints here are built at image time and
-                                    # owned by root (DAC-protected).
+                                    # Blueprints are root-owned; sticky bit (1755)
+                                    # on parent prevents rename/delete (#1607).
 
 landlock:
   compatibility: best_effort

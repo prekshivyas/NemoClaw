@@ -17,6 +17,7 @@ import {
   describeOnboardProvider,
   loadOnboardConfig,
 } from "./onboard/config.js";
+import { scanForSecrets, isMemoryPath } from "./security/secret-scanner.js";
 
 // ---------------------------------------------------------------------------
 // OpenClaw Plugin SDK compatible types (mirrors openclaw/plugin-sdk)
@@ -104,6 +105,21 @@ export interface PluginService {
   stop?: (ctx: { config: OpenClawConfig; logger: PluginLogger }) => void | Promise<void>;
 }
 
+/** Event payload for before_tool_call hooks. */
+export interface BeforeToolCallEvent {
+  toolName: string;
+  params: Record<string, unknown>;
+  runId?: string;
+  toolCallId?: string;
+}
+
+/** Return value from a before_tool_call hook. */
+export interface BeforeToolCallResult {
+  params?: Record<string, unknown>;
+  block?: boolean;
+  blockReason?: string;
+}
+
 /**
  * The API object injected into the plugin's register function by the OpenClaw
  * host. Only the methods we actually call are listed here.
@@ -119,7 +135,7 @@ export interface OpenClawPluginApi {
   registerProvider: (provider: ProviderPlugin) => void;
   registerService: (service: PluginService) => void;
   resolvePath: (input: string) => string;
-  on: (hookName: string, handler: (...args: unknown[]) => void) => void;
+  on: (hookName: string, handler: (...args: unknown[]) => BeforeToolCallResult | undefined) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -234,6 +250,9 @@ export function getPluginConfig(api: OpenClawPluginApi): NemoClawConfig {
 // Plugin entry point
 // ---------------------------------------------------------------------------
 
+/** Tool names that can write/modify files and should be scanned for secrets. */
+const WRITE_TOOL_NAMES = new Set(["write", "edit", "apply_patch", "notebook_edit"]);
+
 export default function register(api: OpenClawPluginApi): void {
   // 1. Register /nemoclaw slash command (chat interface)
   api.registerCommand({
@@ -251,6 +270,44 @@ export default function register(api: OpenClawPluginApi): void {
   const bannerEndpoint = onboardCfg ? describeOnboardEndpoint(onboardCfg) : "build.nvidia.com";
   const bannerProvider = onboardCfg ? describeOnboardProvider(onboardCfg) : "NVIDIA Endpoints";
   const bannerModel = onboardCfg?.model ?? "nvidia/nemotron-3-super-120b-a12b";
+
+  // 3. Register before_tool_call hook to block secrets in memory writes (#1233)
+  try {
+    api.on("before_tool_call", (...args: unknown[]): BeforeToolCallResult | undefined => {
+      const event = args[0] as Partial<BeforeToolCallEvent> | undefined;
+      if (!event?.toolName || !event.params) return undefined;
+
+      const toolName = event.toolName.toLowerCase();
+      if (!WRITE_TOOL_NAMES.has(toolName)) return undefined;
+
+      const filePath = (event.params["file_path"] ?? event.params["path"] ?? "") as string;
+      if (!filePath || !isMemoryPath(filePath)) return undefined;
+
+      const content = (event.params["content"] ??
+        event.params["new_string"] ??
+        event.params["patch"] ??
+        "") as string;
+      if (!content) return undefined;
+
+      const matches = scanForSecrets(content);
+      if (matches.length === 0) return undefined;
+
+      const summary = matches.map((m) => `  - ${m.pattern} (${m.redacted})`).join("\n");
+      api.logger.warn(`[SECURITY] Blocked memory write to ${filePath} — secrets detected`);
+
+      return {
+        block: true,
+        blockReason:
+          `Memory write blocked: detected ${String(matches.length)} likely secret(s):\n${summary}\n\n` +
+          "Remove secrets before saving to persistent memory. " +
+          "Use environment variables or credential stores instead.",
+      };
+    });
+  } catch (err) {
+    api.logger.warn(
+      `[SECURITY] Could not register secret scanner hook: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   api.logger.info("");
   api.logger.info("  ┌─────────────────────────────────────────────────────┐");

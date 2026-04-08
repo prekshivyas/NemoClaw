@@ -60,15 +60,24 @@ for _redir in "${_TOOL_REDIRECTS[@]}"; do
   export "${_redir?}"
 done
 
-# Pre-create redirected directories as sandbox user to prevent ownership
-# conflicts. The gateway starts first (as gateway user) and inherits these
+# Pre-create redirected directories to prevent ownership conflicts.
+# In root mode: the gateway starts first (as gateway user) and inherits these
 # env vars — if it creates a dir first, it would be gateway:gateway 755 and
-# the sandbox user couldn't write subdirs later. Creating them now (as root,
-# chowned to sandbox) ensures the sandbox user always has write access.
-install -d -o sandbox -g sandbox -m 755 \
-  /tmp/.npm-cache /tmp/.cache /tmp/.config /tmp/.local/share \
-  /tmp/.local/state /tmp/.runtime /tmp/.gnupg /tmp/.claude \
-  /tmp/npm-global
+# the sandbox user couldn't write subdirs later. Creating them as root with
+# explicit sandbox ownership ensures the sandbox user always has write access.
+# In non-root mode: we're already the sandbox user, so mkdir -p is sufficient —
+# directories are owned by us automatically. Using install -o would fail with
+# EPERM because only root can chown. Ref: #804
+if [ "$(id -u)" -eq 0 ]; then
+  install -d -o sandbox -g sandbox -m 755 \
+    /tmp/.npm-cache /tmp/.cache /tmp/.config /tmp/.local/share \
+    /tmp/.local/state /tmp/.runtime /tmp/.gnupg /tmp/.claude \
+    /tmp/npm-global
+else
+  mkdir -p /tmp/.npm-cache /tmp/.cache /tmp/.config /tmp/.local/share \
+    /tmp/.local/state /tmp/.runtime /tmp/.gnupg /tmp/.claude \
+    /tmp/npm-global
+fi
 
 # ── Drop unnecessary Linux capabilities ──────────────────────────
 # CIS Docker Benchmark 5.3: containers should not run with default caps.

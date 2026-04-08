@@ -41,8 +41,12 @@ const SECRET_PATTERNS: SecretPattern[] = [
   // Slack
   { name: "Slack token", regex: /\bxox[bpas]-[A-Za-z0-9-]{10,}\b/ },
 
-  // Discord
-  { name: "Discord bot token", regex: /\b[A-Za-z0-9]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}\b/ },
+  // Discord — require contextual prefix to avoid matching JWT/base64 strings
+  {
+    name: "Discord bot token",
+    regex:
+      /(?<=(?:discord|bot|DISCORD_TOKEN|BOT_TOKEN|token)\s*[=:]\s*["']?)[A-Za-z0-9]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27,}/,
+  },
 
   // npm
   { name: "npm token", regex: /\bnpm_[A-Za-z0-9]{36,}\b/ },
@@ -53,10 +57,10 @@ const SECRET_PATTERNS: SecretPattern[] = [
     regex: /-----BEGIN\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/,
   },
 
-  // Generic bearer/auth header values
+  // Generic bearer/auth header values (Authorization: Bearer <token>)
   {
     name: "Authorization header",
-    regex: /(?<=(?:Authorization|Bearer)\s*[=:]\s*["']?)[A-Za-z0-9._~+/=-]{40,}/,
+    regex: /(?<=(?:Authorization\s*:\s*Bearer|Bearer\s*[=:])\s*["']?)[A-Za-z0-9._~+/=-]{40,}/,
   },
 
   // Telegram bot token

@@ -143,6 +143,20 @@ describe("before_tool_call secret scanner hook (#1233)", () => {
     expect(result).toMatchObject({ block: true });
   });
 
+  it("blocks notebook_edit to memory path containing secrets", () => {
+    const api = createMockApi();
+    const handler = getHookHandler(api);
+    const fakeKey = "nvapi-" + "abcdefghijklmnopqrstuvwxyz";
+    const result = handler({
+      toolName: "notebook_edit",
+      params: {
+        file_path: "/sandbox/.openclaw-data/memory/notebook.ipynb",
+        content: `api_key: ${fakeKey}`,
+      },
+    });
+    expect(result).toMatchObject({ block: true });
+  });
+
   it("allows write to memory path with clean content", () => {
     const api = createMockApi();
     const handler = getHookHandler(api);

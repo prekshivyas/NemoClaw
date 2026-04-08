@@ -19,6 +19,11 @@ const FAKE = {
   google: "AIza" + "SyA-1234567890abcdefghijklmnopqrstu",
   anthropic: "sk-ant-" + "api03-abcdefghijklmnopqrstuv",
   huggingface: "hf_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZab",
+  discord: "ABCDEFGHIJKLMNOPQRSTUVWx" + ".abc123" + ".ABCDEFGHIJKLMNOPQRSTUVWXYZa",
+  awsSecret: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  authHeader:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9" +
+    ".eyJzdWIiOiIxMjM0NTY3ODkwIn0.TJVA95OrM7E2cBab30RMHrHDcEfxjoYZgeFONFh7HgQ",
 };
 
 describe("scanForSecrets", () => {
@@ -93,6 +98,24 @@ describe("scanForSecrets", () => {
       const matches = scanForSecrets(`HF_TOKEN=${FAKE.huggingface}`);
       expect(matches).toHaveLength(1);
       expect(matches[0].pattern).toBe("HuggingFace token");
+    });
+
+    it("Discord bot token", () => {
+      const matches = scanForSecrets(`DISCORD_TOKEN=${FAKE.discord}`);
+      expect(matches).toHaveLength(1);
+      expect(matches[0].pattern).toBe("Discord bot token");
+    });
+
+    it("AWS secret key", () => {
+      const matches = scanForSecrets(`aws_secret_access_key = ${FAKE.awsSecret}`);
+      expect(matches).toHaveLength(1);
+      expect(matches[0].pattern).toBe("AWS secret key");
+    });
+
+    it("Authorization header", () => {
+      const matches = scanForSecrets(`Authorization: Bearer ${FAKE.authHeader}`);
+      expect(matches).toHaveLength(1);
+      expect(matches[0].pattern).toBe("Authorization header");
     });
   });
 

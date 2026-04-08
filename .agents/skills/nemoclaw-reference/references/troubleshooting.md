@@ -230,7 +230,7 @@ This is expected behavior.
 Changing or exporting it later does not rewrite the baked `openclaw.json` inside an existing sandbox.
 
 If you need a different device-auth setting, rerun onboarding so NemoClaw rebuilds the sandbox image with the desired configuration.
-For the security trade-offs, refer to Security Best Practices (see the `nemoclaw-security-best` skill).
+For the security trade-offs, refer to Security Best Practices (see the `nemoclaw-configure-security` skill).
 
 ### Agent cannot reach an external host
 

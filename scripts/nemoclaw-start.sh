@@ -184,14 +184,50 @@ verify_config_integrity() {
 apply_model_override() {
   [ -n "${NEMOCLAW_MODEL_OVERRIDE:-}" ] || return 0
 
+  # SECURITY: Only root can write to /sandbox/.openclaw (root:root 444).
+  # In non-root mode the sandbox user cannot modify the config.
+  if [ "$(id -u)" -ne 0 ]; then
+    printf '[SECURITY] NEMOCLAW_MODEL_OVERRIDE ignored — requires root (non-root mode cannot write to config)\n' >&2
+    return 0
+  fi
+
   local config_file="/sandbox/.openclaw/openclaw.json"
   local hash_file="/sandbox/.openclaw/.config-hash"
+
+  # SECURITY: Refuse to write through symlinks to prevent symlink-following attacks.
+  # Symlink validation (validate_openclaw_symlinks) runs later, so guard here too.
+  if [ -L "$config_file" ] || [ -L "$hash_file" ]; then
+    printf '[SECURITY] Refusing model override — config or hash path is a symlink\n' >&2
+    return 1
+  fi
+
   local model_override="$NEMOCLAW_MODEL_OVERRIDE"
   local api_override="${NEMOCLAW_INFERENCE_API_OVERRIDE:-}"
 
-  echo "[config] Applying model override: ${model_override}" >&2
+  # SECURITY: Validate inputs — reject control characters and enforce length limit.
+  if printf '%s' "$model_override" | grep -qP '[\x00-\x1f\x7f]'; then
+    printf '[SECURITY] NEMOCLAW_MODEL_OVERRIDE contains control characters — refusing\n' >&2
+    return 1
+  fi
+  if [ "${#model_override}" -gt 256 ]; then
+    printf '[SECURITY] NEMOCLAW_MODEL_OVERRIDE exceeds 256 characters — refusing\n' >&2
+    return 1
+  fi
+
+  # SECURITY: Allowlist inference API types to prevent unexpected routing.
   if [ -n "$api_override" ]; then
-    echo "[config] Applying inference API override: ${api_override}" >&2
+    case "$api_override" in
+      openai-completions | anthropic-messages) ;;
+      *)
+        printf '[SECURITY] NEMOCLAW_INFERENCE_API_OVERRIDE must be "openai-completions" or "anthropic-messages", got "%s"\n' "$api_override" >&2
+        return 1
+        ;;
+    esac
+  fi
+
+  printf '[SECURITY] Applying model override: %s\n' "$model_override" >&2
+  if [ -n "$api_override" ]; then
+    printf '[SECURITY] Applying inference API override: %s\n' "$api_override" >&2
   fi
 
   python3 - "$config_file" "$model_override" "$api_override" <<'PYOVERRIDE'
@@ -221,7 +257,7 @@ PYOVERRIDE
 
   # Recompute config hash so integrity check passes on next startup
   (cd /sandbox/.openclaw && sha256sum openclaw.json >"$hash_file")
-  echo "[config] Config hash recomputed after model override" >&2
+  printf '[SECURITY] Config hash recomputed after model override\n' >&2
 }
 
 _read_gateway_token() {

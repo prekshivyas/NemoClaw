@@ -39,11 +39,18 @@ describe("nemoclaw-start non-root fallback", () => {
 
     expect(src).toContain("echo 'Setting up NemoClaw...' >&2");
 
-    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then([\s\S]*?)^fi$/m);
+    // Extract the non-root block up to the Root path comment.
+    // Using ^fi$ would match the first nested fi inside helper functions,
+    // truncating the block and including file-writing echo lines that
+    // intentionally omit >&2 (e.g., proxy-env.sh generation).
+    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then([\s\S]*?)# ── Root path/);
     expect(nonRootBlock).toBeTruthy();
     const block = nonRootBlock[1];
 
-    const echoLines = block.match(/^\s*echo\s+.+$/gm) || [];
+    // Only check top-level echo lines that are NOT inside { } > file redirects.
+    // Filter out lines inside brace-group redirects (proxy-env.sh, etc.)
+    const braceStripped = block.replace(/\{[\s\S]*?\}\s*>"[^"]*"/g, "");
+    const echoLines = braceStripped.match(/^\s*echo\s+.+$/gm) || [];
     expect(echoLines.length).toBeGreaterThan(0);
     for (const line of echoLines) {
       expect(line).toContain(">&2");
@@ -205,11 +212,12 @@ describe("runtime model override (#759)", () => {
   });
 
   it("calls apply_model_override after verify_config_integrity in both paths", () => {
-    // Non-root path: verify_config_integrity → apply_model_override
-    const nonRootBlock = src.match(
-      /verify_config_integrity[\s\S]*?apply_model_override[\s\S]*?export_gateway_token[\s\S]*?# ── Root path/,
-    );
+    // Non-root path: extract from uid check to the Root path comment
+    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then([\s\S]*?)# ── Root path/);
     expect(nonRootBlock).toBeTruthy();
+    expect(nonRootBlock[1]).toMatch(
+      /verify_config_integrity[\s\S]*?apply_model_override[\s\S]*?export_gateway_token/,
+    );
 
     // Root path: verify_config_integrity → apply_model_override
     const rootBlock = src.match(
@@ -233,6 +241,34 @@ describe("runtime model override (#759)", () => {
 
   it("supports optional NEMOCLAW_INFERENCE_API_OVERRIDE for cross-provider switches", () => {
     expect(src).toContain("NEMOCLAW_INFERENCE_API_OVERRIDE");
+  });
+
+  it("guards against symlink attacks on config and hash files", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain('-L "$config_file"');
+    expect(fn[1]).toContain('-L "$hash_file"');
+    expect(fn[1]).toContain("Refusing model override");
+  });
+
+  it("only applies override in root mode", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toMatch(/id -u.*-ne 0/);
+    expect(fn[1]).toContain("requires root");
+  });
+
+  it("validates inference API override against allowlist", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("openai-completions");
+    expect(fn[1]).toContain("anthropic-messages");
+  });
+
+  it("rejects model override with control characters", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("control characters");
   });
 });
 
@@ -324,19 +360,22 @@ describe("nemoclaw-start signal handling", () => {
   });
 
   it("registers trap before start_auto_pair in non-root path", () => {
-    // trap must appear before start_auto_pair within the non-root block
-    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then[\s\S]*?^fi$/m)?.[0];
+    // trap must appear before start_auto_pair within the non-root block.
+    // Use the Root path comment as boundary instead of ^fi$ which matches
+    // nested fi inside helper functions.
+    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then[\s\S]*?# ── Root path/)?.[0];
     expect(nonRootBlock).toBeDefined();
     const trapIdx = nonRootBlock.indexOf("trap cleanup SIGTERM SIGINT");
-    const autoIdx = nonRootBlock.indexOf("start_auto_pair");
+    // Match the call site "start_auto_pair\n" (not the function definition "start_auto_pair() {")
+    const autoIdx = nonRootBlock.search(/^\s*start_auto_pair\s*$/m);
     expect(trapIdx).toBeGreaterThan(-1);
     expect(autoIdx).toBeGreaterThan(-1);
     expect(trapIdx).toBeLessThan(autoIdx);
   });
 
   it("registers trap before start_auto_pair in root path", () => {
-    // In the root path (after the non-root fi), trap must precede start_auto_pair
-    const rootBlock = src.split(/^fi$/m).slice(-1)[0];
+    // In the root path (after the non-root block), trap must precede start_auto_pair
+    const rootBlock = src.split(/# ── Root path/)[1] || "";
     const trapIdx = rootBlock.indexOf("trap cleanup SIGTERM SIGINT");
     const autoIdx = rootBlock.indexOf("start_auto_pair");
     expect(trapIdx).toBeGreaterThan(-1);

@@ -145,11 +145,10 @@ $ nemoclaw onboard --resume --recreate-sandbox
 
 The entrypoint patches `openclaw.json` at container startup with the override values.
 No image rebuild is needed.
-Remove the env vars to revert to the original model.
+Remove the env vars and recreate the sandbox to revert to the original model.
 
 `NEMOCLAW_INFERENCE_API_OVERRIDE` accepts `openai-completions` (for NVIDIA, OpenAI, Gemini, compatible endpoints) or `anthropic-messages` (for Anthropic and Anthropic-compatible endpoints).
-This is only needed when switching between provider families.
-Same-provider model switches (for example, switching between two NVIDIA models) only need the gateway route update and `NEMOCLAW_MODEL_OVERRIDE`.
+This variable is only needed when switching between provider families.
 
 ## Step 3: Verify the Active Model
 
@@ -171,8 +170,9 @@ The output includes the active provider, model, and endpoint.
 
 - The host keeps provider credentials.
 - The sandbox continues to use `inference.local`.
-- Same-provider model switches take effect immediately via the gateway route.
-- Cross-provider switches require `NEMOCLAW_MODEL_OVERRIDE` (and optionally `NEMOCLAW_INFERENCE_API_OVERRIDE`) plus a sandbox recreate so the entrypoint patches the config at startup.
+- Same-provider model switches take effect immediately via the gateway route alone.
+- Cross-provider switches also require `NEMOCLAW_MODEL_OVERRIDE` (and `NEMOCLAW_INFERENCE_API_OVERRIDE`) plus a sandbox recreate so the entrypoint patches the config at startup.
+- Overrides are applied at container startup. Changing or removing env vars requires a sandbox recreate to take effect.
 
 ---
 

@@ -386,16 +386,15 @@ with open(\"/sandbox/.openclaw/openclaw.json\") as f:
     cfg = json.load(f)
 primary = cfg[\"agents\"][\"defaults\"][\"model\"][\"primary\"]
 providers = cfg.get(\"models\", {}).get(\"providers\", {})
-model_id = None
-model_name = None
-for pval in providers.values():
-    for m in pval.get(\"models\", []):
-        model_id = m.get(\"id\")
-        model_name = m.get(\"name\")
-if primary == \"test/override-model\" and model_id == \"test/override-model\" and model_name == \"test/override-model\":
+all_models = [m for pval in providers.values() for m in pval.get(\"models\", [])]
+all_patched = all(
+    m.get(\"id\") == \"test/override-model\" and m.get(\"name\") == \"test/override-model\"
+    for m in all_models
+)
+if primary == \"test/override-model\" and all_models and all_patched:
     print(\"OVERRIDE_OK\")
 else:
-    print(f\"OVERRIDE_FAIL primary={primary} id={model_id} name={model_name}\")
+    print(f\"OVERRIDE_FAIL primary={primary} models={len(all_models)} all_patched={all_patched}\")
 "
 ' 2>&1 || true)
 if echo "$OUT" | grep -q "OVERRIDE_OK"; then

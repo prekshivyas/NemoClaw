@@ -35,7 +35,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   { name: "AWS access key", regex: /\bAKIA[0-9A-Z]{16}\b/ },
   {
     name: "AWS secret key",
-    regex: /(?<=aws_secret_access_key\s*[=:]\s*)[A-Za-z0-9/+=]{40}\b/,
+    regex: /(?<=aws_secret_access_key\s*[=:]\s*)[A-Za-z0-9/+=]{40}\b/i,
   },
 
   // Slack
@@ -60,7 +60,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   // Generic bearer/auth header values (Authorization: Bearer <token>)
   {
     name: "Authorization header",
-    regex: /(?<=(?:Authorization\s*:\s*Bearer|Bearer\s*[=:])\s*["']?)[A-Za-z0-9._~+/=-]{40,}/,
+    regex: /(?<=(?:Authorization\s*:\s*Bearer|Bearer\s*[=:])\s*["']?)[A-Za-z0-9._~+/=-]{40,}/i,
   },
 
   // Telegram bot token
@@ -103,14 +103,22 @@ export function scanForSecrets(content: string): SecretMatch[] {
  * Memory paths that the scanner should protect. A Write tool call targeting
  * any path containing these segments is considered a memory write.
  */
+// Known bypass vectors: base64-encoded secrets, hex-encoded secrets, and
+// secrets split across multiple writes are not detectable by regex alone.
+// These are inherent limitations of content-based scanning.
 const MEMORY_PATH_SEGMENTS = [
   "/.openclaw-data/memory/",
-  "/.openclaw/memory/",
-  "/MEMORY.md",
   "/.openclaw-data/workspace/",
   "/.openclaw-data/agents/",
   "/.openclaw-data/skills/",
   "/.openclaw-data/hooks/",
+  "/.openclaw/memory/",
+  "/.openclaw/workspace/",
+  "/.openclaw/agents/",
+  "/.openclaw/skills/",
+  "/.openclaw/hooks/",
+  "/.openclaw-data/MEMORY.md",
+  "/.openclaw/MEMORY.md",
 ];
 
 /**

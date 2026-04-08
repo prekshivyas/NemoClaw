@@ -194,8 +194,12 @@ describe("isMemoryPath", () => {
     expect(isMemoryPath("/sandbox/.openclaw/memory/notes.md")).toBe(true);
   });
 
-  it("matches MEMORY.md", () => {
-    expect(isMemoryPath("/sandbox/.openclaw-data/memory/MEMORY.md")).toBe(true);
+  it("matches MEMORY.md anchored to .openclaw-data", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/MEMORY.md")).toBe(true);
+  });
+
+  it("matches MEMORY.md anchored to .openclaw", () => {
+    expect(isMemoryPath("/sandbox/.openclaw/MEMORY.md")).toBe(true);
   });
 
   it("matches workspace paths", () => {
@@ -220,5 +224,13 @@ describe("isMemoryPath", () => {
 
   it("does not match tmp files", () => {
     expect(isMemoryPath("/tmp/scratch.md")).toBe(false);
+  });
+
+  it("does not match unanchored workspace in project paths", () => {
+    expect(isMemoryPath("/sandbox/my-project/workspace/readme.md")).toBe(false);
+  });
+
+  it("does not match unanchored MEMORY.md in project paths", () => {
+    expect(isMemoryPath("/sandbox/my-project/MEMORY.md")).toBe(false);
   });
 });

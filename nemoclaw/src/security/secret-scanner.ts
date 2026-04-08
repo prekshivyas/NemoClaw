@@ -25,8 +25,8 @@ const SECRET_PATTERNS: SecretPattern[] = [
   // NVIDIA
   { name: "NVIDIA API key", regex: /\bnvapi-[A-Za-z0-9_-]{20,}\b/ },
 
-  // OpenAI
-  { name: "OpenAI API key", regex: /\bsk-[A-Za-z0-9]{20,}\b/ },
+  // OpenAI — exclude sk-ant- (Anthropic) to avoid double-matching
+  { name: "OpenAI API key", regex: /\bsk-(?!ant-)[A-Za-z0-9]{20,}\b/ },
 
   // GitHub
   { name: "GitHub token", regex: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b/ },
@@ -82,11 +82,15 @@ const SECRET_PATTERNS: SecretPattern[] = [
  */
 export function scanForSecrets(content: string): SecretMatch[] {
   const matches: SecretMatch[] = [];
+  const seen = new Set<string>();
 
   for (const { name, regex } of SECRET_PATTERNS) {
-    const match = regex.exec(content);
-    if (match) {
+    const flags = regex.flags.includes("g") ? regex.flags : `${regex.flags}g`;
+    for (const match of content.matchAll(new RegExp(regex.source, flags))) {
       const value = match[0];
+      const key = `${name}:${value}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const redacted = value.length > 8 ? `${value.slice(0, 4)}..${value.slice(-4)}` : "****";
       matches.push({ pattern: name, redacted });
     }

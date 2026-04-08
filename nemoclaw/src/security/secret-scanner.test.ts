@@ -158,6 +158,30 @@ describe("scanForSecrets", () => {
       const matches = scanForSecrets(content);
       expect(matches.length).toBeGreaterThanOrEqual(2);
     });
+
+    it("counts multiple occurrences of the same pattern", () => {
+      const key1 = "nvapi-" + "aaaabbbbccccddddeeeefffff";
+      const key2 = "nvapi-" + "xxxxyyyyzzzzwwwwvvvvuuuuu";
+      const content = `first: ${key1}\nsecond: ${key2}`;
+      const matches = scanForSecrets(content);
+      const nvidiaMatches = matches.filter((m) => m.pattern === "NVIDIA API key");
+      expect(nvidiaMatches).toHaveLength(2);
+    });
+
+    it("deduplicates identical values", () => {
+      const content = `key: ${FAKE.nvidia}\nrepeat: ${FAKE.nvidia}`;
+      const matches = scanForSecrets(content);
+      const nvidiaMatches = matches.filter((m) => m.pattern === "NVIDIA API key");
+      expect(nvidiaMatches).toHaveLength(1);
+    });
+  });
+
+  describe("pattern overlap", () => {
+    it("Anthropic key is not double-matched as OpenAI", () => {
+      const matches = scanForSecrets(`key: ${FAKE.anthropic}`);
+      expect(matches).toHaveLength(1);
+      expect(matches[0].pattern).toBe("Anthropic API key");
+    });
   });
 });
 

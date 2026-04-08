@@ -272,6 +272,12 @@ export default function register(api: OpenClawPluginApi): void {
   const bannerModel = onboardCfg?.model ?? "nvidia/nemotron-3-super-120b-a12b";
 
   // 3. Register before_tool_call hook to block secrets in memory writes (#1233)
+  // NOTE: This relies on OpenClaw's before_tool_call plugin hook contract
+  // (PluginHookBeforeToolCallEvent/Result in openclaw/src/plugins/types.ts).
+  // If the hook name or return shape changes in a future OpenClaw release,
+  // the try/catch ensures the plugin still loads — the scanner just becomes
+  // a no-op. Verify after OpenClaw upgrades that blocked writes still show
+  // the expected error message.
   try {
     api.on("before_tool_call", (...args: unknown[]): BeforeToolCallResult | undefined => {
       const event = args[0] as Partial<BeforeToolCallEvent> | undefined;

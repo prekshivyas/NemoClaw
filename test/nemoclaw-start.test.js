@@ -196,6 +196,46 @@ describe("nemoclaw-start configure guard (#1114)", () => {
   });
 });
 
+describe("runtime model override (#759)", () => {
+  const src = fs.readFileSync(START_SCRIPT, "utf-8");
+
+  it("defines apply_model_override function", () => {
+    expect(src).toContain("apply_model_override()");
+    expect(src).toContain("NEMOCLAW_MODEL_OVERRIDE");
+  });
+
+  it("calls apply_model_override after verify_config_integrity in both paths", () => {
+    // Non-root path: verify_config_integrity → apply_model_override
+    const nonRootBlock = src.match(
+      /verify_config_integrity[\s\S]*?apply_model_override[\s\S]*?export_gateway_token[\s\S]*?# ── Root path/,
+    );
+    expect(nonRootBlock).toBeTruthy();
+
+    // Root path: verify_config_integrity → apply_model_override
+    const rootBlock = src.match(
+      /# ── Root path[\s\S]*?verify_config_integrity\n\s*apply_model_override\n\s*export_gateway_token/,
+    );
+    expect(rootBlock).toBeTruthy();
+  });
+
+  it("recomputes config hash after override", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("sha256sum openclaw.json");
+    expect(fn[1]).toContain("config-hash");
+  });
+
+  it("is a no-op when NEMOCLAW_MODEL_OVERRIDE is not set", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toMatch(/\[ -n "\$\{NEMOCLAW_MODEL_OVERRIDE:-\}" \] \|\| return 0/);
+  });
+
+  it("supports optional NEMOCLAW_INFERENCE_API_OVERRIDE for cross-provider switches", () => {
+    expect(src).toContain("NEMOCLAW_INFERENCE_API_OVERRIDE");
+  });
+});
+
 describe("nemoclaw-start auto-pair client whitelisting (#117)", () => {
   const src = fs.readFileSync(START_SCRIPT, "utf-8");
 

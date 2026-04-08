@@ -49,7 +49,7 @@ describe("nemoclaw-start non-root fallback", () => {
 
     // Only check top-level echo lines that are NOT inside { } > file redirects.
     // Filter out lines inside brace-group redirects (proxy-env.sh, etc.)
-    const braceStripped = block.replace(/\{[\s\S]*?\}\s*>"[^"]*"/g, "");
+    const braceStripped = block.replace(/\{[\s\S]*?\}\s*>\s*"[^"]*"/g, "");
     const echoLines = braceStripped.match(/^\s*echo\s+.+$/gm) || [];
     expect(echoLines.length).toBeGreaterThan(0);
     for (const line of echoLines) {

@@ -21,6 +21,9 @@
 #   NEMOCLAW_INFERENCE_API_OVERRIDE  Override the inference API type when switching between
 #                                 provider families (e.g., "anthropic-messages" or
 #                                 "openai-completions"). Only needed for cross-provider switches.
+#   NEMOCLAW_CORS_ORIGIN           Add a browser origin to allowedOrigins at startup without
+#                                 rebuilding. Useful for custom domains/ports (e.g.,
+#                                 "https://my-server.example.com:8443").
 
 set -euo pipefail
 
@@ -258,6 +261,67 @@ PYOVERRIDE
   # Recompute config hash so integrity check passes on next startup
   (cd /sandbox/.openclaw && sha256sum openclaw.json >"$hash_file")
   printf '[SECURITY] Config hash recomputed after model override\n' >&2
+}
+
+# ── Runtime CORS origin override ──────────────────────────────────
+# Adds a browser origin to gateway.controlUi.allowedOrigins at startup
+# without rebuilding the sandbox image. Useful for custom domains/ports.
+# Same trust model as model override: host-set env var, applied before
+# chattr +i, hash recomputed.
+# Ref: https://github.com/NVIDIA/NemoClaw/issues/719
+
+apply_cors_override() {
+  [ -n "${NEMOCLAW_CORS_ORIGIN:-}" ] || return 0
+
+  if [ "$(id -u)" -ne 0 ]; then
+    printf '[SECURITY] NEMOCLAW_CORS_ORIGIN ignored — requires root (non-root mode cannot write to config)\n' >&2
+    return 0
+  fi
+
+  local config_file="/sandbox/.openclaw/openclaw.json"
+  local hash_file="/sandbox/.openclaw/.config-hash"
+
+  if [ -L "$config_file" ] || [ -L "$hash_file" ]; then
+    printf '[SECURITY] Refusing CORS override — config or hash path is a symlink\n' >&2
+    return 1
+  fi
+
+  local cors_origin="$NEMOCLAW_CORS_ORIGIN"
+
+  if printf '%s' "$cors_origin" | grep -qP '[\x00-\x1f\x7f]'; then
+    printf '[SECURITY] NEMOCLAW_CORS_ORIGIN contains control characters — refusing\n' >&2
+    return 1
+  fi
+  if [ "${#cors_origin}" -gt 256 ]; then
+    printf '[SECURITY] NEMOCLAW_CORS_ORIGIN exceeds 256 characters — refusing\n' >&2
+    return 1
+  fi
+  if ! printf '%s' "$cors_origin" | grep -qE '^https?://'; then
+    printf '[SECURITY] NEMOCLAW_CORS_ORIGIN must start with http:// or https://, got "%s"\n' "$cors_origin" >&2
+    return 1
+  fi
+
+  printf '[config] Adding CORS origin: %s\n' "$cors_origin" >&2
+
+  python3 - "$config_file" "$cors_origin" <<'PYCORS'
+import json, sys
+
+config_file, cors_origin = sys.argv[1], sys.argv[2]
+
+with open(config_file) as f:
+    cfg = json.load(f)
+
+origins = cfg.get("gateway", {}).get("controlUi", {}).get("allowedOrigins", [])
+if cors_origin not in origins:
+    origins.append(cors_origin)
+    cfg.setdefault("gateway", {}).setdefault("controlUi", {})["allowedOrigins"] = origins
+
+with open(config_file, "w") as f:
+    json.dump(cfg, f, indent=2)
+PYCORS
+
+  (cd /sandbox/.openclaw && sha256sum openclaw.json >"$hash_file")
+  printf '[config] Config hash recomputed after CORS override\n' >&2
 }
 
 _read_gateway_token() {
@@ -658,6 +722,7 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
   fi
   apply_model_override
+  apply_cors_override
   export_gateway_token
   install_configure_guard
   configure_messaging_channels
@@ -755,6 +820,7 @@ fi
 # Verify config integrity before starting anything
 verify_config_integrity
 apply_model_override
+apply_cors_override
 export_gateway_token
 install_configure_guard
 

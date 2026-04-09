@@ -219,9 +219,9 @@ describe("runtime model override (#759)", () => {
       /verify_config_integrity[\s\S]*?apply_model_override[\s\S]*?export_gateway_token/,
     );
 
-    // Root path: verify_config_integrity → apply_model_override
+    // Root path: verify_config_integrity → apply_model_override → apply_cors_override
     const rootBlock = src.match(
-      /# ── Root path[\s\S]*?verify_config_integrity\n\s*apply_model_override\n\s*export_gateway_token/,
+      /# ── Root path[\s\S]*?verify_config_integrity\n\s*apply_model_override\n\s*apply_cors_override\n\s*export_gateway_token/,
     );
     expect(rootBlock).toBeTruthy();
   });
@@ -267,6 +267,67 @@ describe("runtime model override (#759)", () => {
 
   it("rejects model override with control characters", () => {
     const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("control characters");
+  });
+});
+
+describe("runtime CORS origin override (#719)", () => {
+  const src = fs.readFileSync(START_SCRIPT, "utf-8");
+
+  it("defines apply_cors_override function", () => {
+    expect(src).toContain("apply_cors_override()");
+    expect(src).toContain("NEMOCLAW_CORS_ORIGIN");
+  });
+
+  it("calls apply_cors_override after apply_model_override in both paths", () => {
+    const nonRootBlock = src.match(/if \[ "\$\(id -u\)" -ne 0 \]; then([\s\S]*?)# ── Root path/);
+    expect(nonRootBlock).toBeTruthy();
+    expect(nonRootBlock[1]).toMatch(
+      /apply_model_override[\s\S]*?apply_cors_override[\s\S]*?export_gateway_token/,
+    );
+
+    const rootBlock = src.match(
+      /# ── Root path[\s\S]*?apply_model_override\n\s*apply_cors_override\n\s*export_gateway_token/,
+    );
+    expect(rootBlock).toBeTruthy();
+  });
+
+  it("recomputes config hash after override", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("sha256sum openclaw.json");
+    expect(fn[1]).toContain("config-hash");
+  });
+
+  it("is a no-op when NEMOCLAW_CORS_ORIGIN is not set", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toMatch(/\[ -n "\$\{NEMOCLAW_CORS_ORIGIN:-\}" \] \|\| return 0/);
+  });
+
+  it("validates origin starts with http:// or https://", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("^https?://");
+  });
+
+  it("guards against symlink attacks", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain('-L "$config_file"');
+    expect(fn[1]).toContain("Refusing CORS override");
+  });
+
+  it("only applies override in root mode", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toMatch(/id -u.*-ne 0/);
+    expect(fn[1]).toContain("requires root");
+  });
+
+  it("rejects origin with control characters", () => {
+    const fn = src.match(/apply_cors_override\(\) \{([\s\S]*?)^}/m);
     expect(fn).toBeTruthy();
     expect(fn[1]).toContain("control characters");
   });

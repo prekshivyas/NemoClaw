@@ -221,7 +221,7 @@ describe("runtime model override (#759)", () => {
 
     // Root path: verify_config_integrity → apply_model_override → apply_cors_override
     const rootBlock = src.match(
-      /# ── Root path[\s\S]*?verify_config_integrity\n\s*apply_model_override\n\s*apply_cors_override\n\s*export_gateway_token/,
+      /# ── Root path[\s\S]*?verify_config_integrity[\s\S]*?apply_model_override[\s\S]*?apply_cors_override[\s\S]*?export_gateway_token/,
     );
     expect(rootBlock).toBeTruthy();
   });

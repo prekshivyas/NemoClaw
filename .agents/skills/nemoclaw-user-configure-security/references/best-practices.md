@@ -389,6 +389,19 @@ The CLI automatically redacts secret patterns (API keys, bearer tokens, provider
 | Risk if relaxed | Without redaction, secrets could appear in terminal scrollback, log files, or debug output shared in bug reports. |
 | Recommendation | No action needed. If you share `nemoclaw debug` output, verify that no secrets appear in the collected diagnostics. |
 
+### Memory Secret Scanner
+
+The NemoClaw plugin blocks the agent from writing likely secrets (API keys, tokens, private keys) into persistent memory files.
+The scanner intercepts Write, Edit, and similar tool calls targeting memory and workspace paths before they reach disk.
+
+| Aspect | Detail |
+|---|---|
+| Default | Enabled. The plugin registers a `before_tool_call` hook that scans for 14 high-confidence secret patterns. |
+| What it covers | `.openclaw-data/memory/`, `workspace/`, `agents/`, `skills/`, `hooks/`, and `MEMORY.md`. |
+| What you can change | This is not a user-facing knob. The plugin enforces it automatically. |
+| Risk if relaxed | Without scanning, the agent could persist API keys or tokens in memory files that survive across sessions and backups. |
+| Recommendation | No action needed. If a write is blocked, the agent receives an actionable error listing the detected patterns. |
+
 ## Inference Controls
 
 OpenShell routes all inference traffic through the gateway to isolate provider credentials from the sandbox.

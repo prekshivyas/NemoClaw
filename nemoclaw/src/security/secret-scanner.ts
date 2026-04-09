@@ -29,7 +29,7 @@ const SECRET_PATTERNS: SecretPattern[] = [
   { name: "OpenAI API key", regex: /\bsk-(?!ant-)[A-Za-z0-9]{20,}\b/ },
 
   // GitHub
-  { name: "GitHub token", regex: /\b(ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b/ },
+  { name: "GitHub token", regex: /\b(ghp|gho|ghu|ghs|ghr|github_pat)_[A-Za-z0-9]{36,}\b/ },
 
   // AWS
   { name: "AWS access key", regex: /\bAKIA[0-9A-Z]{16}\b/ },

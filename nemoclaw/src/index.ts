@@ -286,18 +286,16 @@ export default function register(api: OpenClawPluginApi): void {
       const toolName = event.toolName.toLowerCase();
       if (!WRITE_TOOL_NAMES.has(toolName)) return undefined;
 
-      const rawPath = (event.params["file_path"] ?? event.params["path"] ?? "") as string;
-      if (!rawPath) return undefined;
+      const rawPath = event.params["file_path"] ?? event.params["path"];
+      if (typeof rawPath !== "string" || rawPath.length === 0) return undefined;
       // Resolve symlinks and traversal before checking — prevents bypasses like
       // /sandbox/project/../../.openclaw-data/memory/secrets.md
       const filePath = api.resolvePath(rawPath);
       if (!isMemoryPath(filePath)) return undefined;
 
-      const content = (event.params["content"] ??
-        event.params["new_string"] ??
-        event.params["patch"] ??
-        "") as string;
-      if (!content) return undefined;
+      const content =
+        event.params["content"] ?? event.params["new_string"] ?? event.params["patch"];
+      if (typeof content !== "string" || content.length === 0) return undefined;
 
       const matches = scanForSecrets(content);
       if (matches.length === 0) return undefined;

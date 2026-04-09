@@ -233,10 +233,12 @@ describe("runtime model override (#759)", () => {
     expect(fn[1]).toContain("config-hash");
   });
 
-  it("is a no-op when NEMOCLAW_MODEL_OVERRIDE is not set", () => {
+  it("is a no-op when no override env vars are set", () => {
     const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
     expect(fn).toBeTruthy();
-    expect(fn[1]).toMatch(/\[ -n "\$\{NEMOCLAW_MODEL_OVERRIDE:-\}" \] \|\| return 0/);
+    // Guard checks all override env vars before returning early
+    expect(fn[1]).toContain("NEMOCLAW_MODEL_OVERRIDE");
+    expect(fn[1]).toContain("|| return 0");
   });
 
   it("supports optional NEMOCLAW_INFERENCE_API_OVERRIDE for cross-provider switches", () => {
@@ -269,6 +271,57 @@ describe("runtime model override (#759)", () => {
     const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
     expect(fn).toBeTruthy();
     expect(fn[1]).toContain("control characters");
+  });
+
+  it("supports NEMOCLAW_CONTEXT_WINDOW override", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("NEMOCLAW_CONTEXT_WINDOW");
+    expect(fn[1]).toContain("contextWindow");
+  });
+
+  it("supports NEMOCLAW_MAX_TOKENS override", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("NEMOCLAW_MAX_TOKENS");
+    expect(fn[1]).toContain("maxTokens");
+  });
+
+  it("supports NEMOCLAW_REASONING override", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("NEMOCLAW_REASONING");
+    expect(fn[1]).toContain("reasoning");
+  });
+
+  it("validates NEMOCLAW_CONTEXT_WINDOW is a positive integer", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("NEMOCLAW_CONTEXT_WINDOW must be a positive integer");
+  });
+
+  it("validates NEMOCLAW_MAX_TOKENS is a positive integer", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain("NEMOCLAW_MAX_TOKENS must be a positive integer");
+  });
+
+  it("validates NEMOCLAW_REASONING is true or false", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    expect(fn[1]).toContain('NEMOCLAW_REASONING must be "true" or "false"');
+  });
+
+  it("triggers on any override env var, not just MODEL_OVERRIDE", () => {
+    const fn = src.match(/apply_model_override\(\) \{([\s\S]*?)^}/m);
+    expect(fn).toBeTruthy();
+    // The guard should check all five env vars
+    const guard = fn[1].split("return 0")[0];
+    expect(guard).toContain("NEMOCLAW_MODEL_OVERRIDE");
+    expect(guard).toContain("NEMOCLAW_INFERENCE_API_OVERRIDE");
+    expect(guard).toContain("NEMOCLAW_CONTEXT_WINDOW");
+    expect(guard).toContain("NEMOCLAW_MAX_TOKENS");
+    expect(guard).toContain("NEMOCLAW_REASONING");
   });
 });
 

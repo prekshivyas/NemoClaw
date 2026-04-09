@@ -21,6 +21,10 @@
 #   NEMOCLAW_INFERENCE_API_OVERRIDE  Override the inference API type when switching between
 #                                 provider families (e.g., "anthropic-messages" or
 #                                 "openai-completions"). Only needed for cross-provider switches.
+#   NEMOCLAW_CONTEXT_WINDOW        Override the model's context window size (e.g., "32768").
+#   NEMOCLAW_MAX_TOKENS            Override the model's max output tokens (e.g., "8192").
+#   NEMOCLAW_REASONING             Set to "true" to enable reasoning mode for the model.
+#                                 Required for reasoning models (o1, Claude with thinking).
 #   NEMOCLAW_CORS_ORIGIN           Add a browser origin to allowedOrigins at startup without
 #                                 rebuilding. Useful for custom domains/ports (e.g.,
 #                                 "https://my-server.example.com:8443").
@@ -185,12 +189,18 @@ verify_config_integrity() {
 # Ref: https://github.com/NVIDIA/NemoClaw/issues/759
 
 apply_model_override() {
-  [ -n "${NEMOCLAW_MODEL_OVERRIDE:-}" ] || return 0
+  # Any of these env vars trigger a config patch
+  [ -n "${NEMOCLAW_MODEL_OVERRIDE:-}" ] \
+    || [ -n "${NEMOCLAW_INFERENCE_API_OVERRIDE:-}" ] \
+    || [ -n "${NEMOCLAW_CONTEXT_WINDOW:-}" ] \
+    || [ -n "${NEMOCLAW_MAX_TOKENS:-}" ] \
+    || [ -n "${NEMOCLAW_REASONING:-}" ] \
+    || return 0
 
   # SECURITY: Only root can write to /sandbox/.openclaw (root:root 444).
   # In non-root mode the sandbox user cannot modify the config.
   if [ "$(id -u)" -ne 0 ]; then
-    printf '[SECURITY] NEMOCLAW_MODEL_OVERRIDE ignored — requires root (non-root mode cannot write to config)\n' >&2
+    printf '[SECURITY] Model/inference overrides ignored — requires root (non-root mode cannot write to config)\n' >&2
     return 0
   fi
 
@@ -228,27 +238,66 @@ apply_model_override() {
     esac
   fi
 
-  printf '[SECURITY] Applying model override: %s\n' "$model_override" >&2
-  if [ -n "$api_override" ]; then
-    printf '[SECURITY] Applying inference API override: %s\n' "$api_override" >&2
+  local context_window="${NEMOCLAW_CONTEXT_WINDOW:-}"
+  local max_tokens="${NEMOCLAW_MAX_TOKENS:-}"
+  local reasoning="${NEMOCLAW_REASONING:-}"
+
+  # Validate numeric values
+  if [ -n "$context_window" ] && ! printf '%s' "$context_window" | grep -qE '^[0-9]+$'; then
+    printf '[SECURITY] NEMOCLAW_CONTEXT_WINDOW must be a positive integer, got "%s"\n' "$context_window" >&2
+    return 1
+  fi
+  if [ -n "$max_tokens" ] && ! printf '%s' "$max_tokens" | grep -qE '^[0-9]+$'; then
+    printf '[SECURITY] NEMOCLAW_MAX_TOKENS must be a positive integer, got "%s"\n' "$max_tokens" >&2
+    return 1
+  fi
+  # Validate reasoning is true/false
+  if [ -n "$reasoning" ]; then
+    case "$reasoning" in
+      true | false) ;;
+      *)
+        printf '[SECURITY] NEMOCLAW_REASONING must be "true" or "false", got "%s"\n' "$reasoning" >&2
+        return 1
+        ;;
+    esac
   fi
 
-  python3 - "$config_file" "$model_override" "$api_override" <<'PYOVERRIDE'
-import json, sys
+  [ -n "$model_override" ] && printf '[config] Applying model override: %s\n' "$model_override" >&2
+  [ -n "$api_override" ] && printf '[config] Applying inference API override: %s\n' "$api_override" >&2
+  [ -n "$context_window" ] && printf '[config] Applying context window override: %s\n' "$context_window" >&2
+  [ -n "$max_tokens" ] && printf '[config] Applying max tokens override: %s\n' "$max_tokens" >&2
+  [ -n "$reasoning" ] && printf '[config] Applying reasoning override: %s\n' "$reasoning" >&2
+
+  NEMOCLAW_CONTEXT_WINDOW="$context_window" \
+    NEMOCLAW_MAX_TOKENS="$max_tokens" \
+    NEMOCLAW_REASONING="$reasoning" \
+    python3 - "$config_file" "$model_override" "$api_override" <<'PYOVERRIDE'
+import json, os, sys
 
 config_file, model_override, api_override = sys.argv[1], sys.argv[2], sys.argv[3]
+context_window = os.environ.get("NEMOCLAW_CONTEXT_WINDOW", "")
+max_tokens = os.environ.get("NEMOCLAW_MAX_TOKENS", "")
+reasoning = os.environ.get("NEMOCLAW_REASONING", "")
 
 with open(config_file) as f:
     cfg = json.load(f)
 
 # Patch primary model reference
-cfg["agents"]["defaults"]["model"]["primary"] = model_override
+if model_override:
+    cfg["agents"]["defaults"]["model"]["primary"] = model_override
 
-# Patch model id and name in provider config
+# Patch model properties in provider config
 for pkey, pval in cfg.get("models", {}).get("providers", {}).items():
     for m in pval.get("models", []):
-        m["id"] = model_override
-        m["name"] = model_override
+        if model_override:
+            m["id"] = model_override
+            m["name"] = model_override
+        if context_window:
+            m["contextWindow"] = int(context_window)
+        if max_tokens:
+            m["maxTokens"] = int(max_tokens)
+        if reasoning:
+            m["reasoning"] = reasoning == "true"
 
     # Patch inference API type if overridden (cross-provider switch)
     if api_override:

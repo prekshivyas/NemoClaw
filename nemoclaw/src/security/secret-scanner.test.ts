@@ -218,6 +218,34 @@ describe("isMemoryPath", () => {
     expect(isMemoryPath("/sandbox/.openclaw-data/hooks/my-hook/handler.ts")).toBe(true);
   });
 
+  it("matches credentials paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/credentials/auth.json")).toBe(true);
+  });
+
+  it("matches canvas paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/canvas/drawing.json")).toBe(true);
+  });
+
+  it("matches identity paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/identity/profile.json")).toBe(true);
+  });
+
+  it("matches cron paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/cron/schedule.json")).toBe(true);
+  });
+
+  it("matches telegram paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/telegram/state.json")).toBe(true);
+  });
+
+  it("matches sandbox state paths", () => {
+    expect(isMemoryPath("/sandbox/.openclaw-data/sandbox/config.json")).toBe(true);
+  });
+
+  it("matches .nemoclaw paths", () => {
+    expect(isMemoryPath("/sandbox/.nemoclaw/config.json")).toBe(true);
+  });
+
   it("does not match regular files", () => {
     expect(isMemoryPath("/sandbox/project/src/index.ts")).toBe(false);
   });

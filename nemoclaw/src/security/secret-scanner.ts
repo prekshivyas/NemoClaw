@@ -112,6 +112,12 @@ const MEMORY_PATH_SEGMENTS = [
   "/.openclaw-data/agents/",
   "/.openclaw-data/skills/",
   "/.openclaw-data/hooks/",
+  "/.openclaw-data/credentials/",
+  "/.openclaw-data/canvas/",
+  "/.openclaw-data/identity/",
+  "/.openclaw-data/cron/",
+  "/.openclaw-data/telegram/",
+  "/.openclaw-data/sandbox/",
   "/.openclaw/memory/",
   "/.openclaw/workspace/",
   "/.openclaw/agents/",
@@ -119,6 +125,7 @@ const MEMORY_PATH_SEGMENTS = [
   "/.openclaw/hooks/",
   "/.openclaw-data/MEMORY.md",
   "/.openclaw/MEMORY.md",
+  "/.nemoclaw/",
 ];
 
 /**

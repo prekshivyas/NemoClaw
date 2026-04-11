@@ -516,6 +516,14 @@ The following patterns weaken security without providing meaningful benefit.
 | Adding inference provider hosts to the network policy | Direct network access to an inference host bypasses credential isolation and usage tracking. | Use OpenShell inference routing instead of adding hosts like `api.openai.com` or `api.anthropic.com` to the network policy. |
 | Disabling device auth for remote deployments | Without device auth, any device on the network can connect to the gateway without pairing. Combined with a cloudflared tunnel, this makes the dashboard publicly accessible and unauthenticated. | Keep `NEMOCLAW_DISABLE_DEVICE_AUTH` at its default (`0`). Only set it to `1` for local headless or development environments. |
 
+## Known Limitations
+
+| Limitation | Impact | Mitigation |
+|-----------|--------|------------|
+| `openclaw agent --local` bypasses gateway | Secret scanning, network policy, and inference auth are not enforced when the agent runs in local mode. | A runtime warning is emitted when `--local` is detected. Avoid `--local` for production workflows. A future OpenClaw-level hook will close this gap. |
+| Direct filesystem writes bypass secret scanner | The scanner intercepts OpenClaw tool calls, not raw filesystem writes (e.g., `echo secret > file`). | Landlock restricts writable paths. The scanner is application-layer defense-in-depth, not a filesystem-level control. |
+| Base64/hex-encoded secrets are not detected | Content-based regex scanning cannot detect encoded or obfuscated secrets. | Use environment variables or credential stores instead of writing secrets to files. |
+
 ## Related Topics
 
 - Network Policies (see the `nemoclaw-user-reference` skill) for the full baseline policy reference.
